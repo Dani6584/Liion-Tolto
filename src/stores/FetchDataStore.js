@@ -11,7 +11,9 @@ export const useFetchDataStore = defineStore('FetchData', {
     jo_rossz: null,
     belso_ellenallas: null,
     fesz:[],
-    idok:[]
+    idok:[],
+    fesz2:[],
+    idok2:[]
 
   }),
   actions: {

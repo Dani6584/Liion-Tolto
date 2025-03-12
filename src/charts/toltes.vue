@@ -37,7 +37,7 @@ export default {
     const b=useFetchDataStore();
     console.log(b.idok2)
 
-    this.data.labels=b._idok2;
+    this.data.labels=b.idok2;
     this.data.datasets[0].data=b.fesz2;
 
     this.loaded=true;
@@ -45,8 +45,8 @@ export default {
 
   data() {
     return {
-      _idok2:[],
-      _fesz2:[],  
+      idok2:[],
+      fesz2:[],
       
       loaded:false,
       data:{

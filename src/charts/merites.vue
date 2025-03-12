@@ -45,8 +45,8 @@ export default {
 
   data() {
     return {
-      _idok:[],
-      _fesz:[],  
+      idok:[],
+      fesz:[],  
       
       loaded:false,
       data:{

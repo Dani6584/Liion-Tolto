@@ -28,8 +28,8 @@ async function lekeres(docID,pinia=false) {
         fetchData.setFesz(_fesz);
         fetchData.setIdok(_idok);
 
-        fetchData.setFesz(_fesz2);
-        fetchData.setIdok(_idok2);
+        fetchData.setFesz2(_fesz2);
+        fetchData.setIdok2(_idok2);
         return {}
         }
 
