@@ -9,7 +9,10 @@ export const useFetchDataStore = defineStore('FetchData', {
     toltes_kezdes: null,
     toltes_vege: null,
     jo_rossz: null,
-    belso_ellenallas: null
+    belso_ellenallas: null,
+    fesz:[],
+    idok:[]
+
   }),
   actions: {
     setData(data) {
@@ -22,5 +25,17 @@ export const useFetchDataStore = defineStore('FetchData', {
         this.jo_rossz = data.jo_rossz;
         this.belso_ellenallas = data.belso_ellenallas;
       },
+    setFesz(_fesz) {
+      this.fesz=_fesz
+    },
+    setIdok(_idok) {
+      this.idok=_idok
+    },
+    setFesz2(_fesz2) {
+      this.fesz2=_fesz2
+    },
+    setIdok2(_idok2) {
+      this.idok2=_idok2
+    }
   },
 });
