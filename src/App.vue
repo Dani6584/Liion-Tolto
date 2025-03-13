@@ -5,5 +5,5 @@
 
 <template>
   <div><Navigation/></div>
-  <div><Content/></div>
+  <div><RouterView/></div>
 </template>

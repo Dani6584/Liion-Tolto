@@ -10,7 +10,7 @@ const router = createRouter({
     {
       path: '/data',
       name: 'data',
-      component: () => import('@/components/FetchData.vue'),
+      component: () => import('@/components/Content.vue'),
     },
   ],
 })

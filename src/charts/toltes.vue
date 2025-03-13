@@ -54,8 +54,8 @@ export default {
         datasets: [
         {
           label: 'Töltési görbe',
-          backgroundColor: '#e56464',
-          borderColor: '#e5a4a4',
+          borderColor: '#46e62d',
+          backgroundColor: '#1e820f',
           pointRadius: 5,
           fill: false,
           data: []
@@ -70,13 +70,13 @@ export default {
         maintainAspectRatio: true,
 
         scales: {
-          x: { title:{display: true, text: 'Eltelt Idő', color: '#a6adbb'}, ticks:{color: '#a6adbb'}, grid:{color: '#5a5e66'}},
-          y: { title:{display: true, text: 'Feszültség', color: '#a6adbb'}, ticks:{color: '#a6adbb'}, grid:{color: '#5a5e66'}}
+          x: { title:{display: true, text: 'Eltelt Idő', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}},
+          y: { title:{display: true, text: 'Feszültség', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}}
         },
 
         plugins: {
-          legend:  {labels:{color: '#a6adbb'}},
-          tooltip: {labels:{color: '#a6adbb'}}  
+          legend:  {labels:{color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}},
+          tooltip: {labels:{color: '#a8adbb'}}  
         }
 
       };

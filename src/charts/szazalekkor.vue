@@ -23,10 +23,11 @@ export default {
             labels: [],
             datasets: [
                 {
-                    data: [100],
+                    label: 'Szazalek',
+                    borderColor: ['#1e820f'],
+                    backgroundColor: ['#46e62d'],
                     borderWidth: 5,
-                    borderColor: ['#ffffff'],
-                    backgroundColor: ['#e74c3c']
+                    data: [100]
                 }
             ]
         },

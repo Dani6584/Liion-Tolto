@@ -12,6 +12,8 @@ async function lekeres(docID, pinia = false) {
     try {
       const response = await database.getDocument(ids.database_id, ids.akkumulator_id, docID);
       data = response;
+
+      console.log(data.toltes_kezdete);
       const fetchData= new useFetchDataStore();
       const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
       _fesz = MeritesResponse.documents.map(doc => doc.voltage);
@@ -42,15 +44,9 @@ async function lekeres(docID, pinia = false) {
     }
   }
 
-
   function datum(a) {
-    if (a == '') {
-      return '';
-    }
-    else {
-      moment.locale('hu');
-      return moment(a).format('MMMM Do hh:mm:ss');
-    }
+    moment.locale('hu');
+    return moment(a).format('MMM Do hh:mm');
   }
 
   export {lekeres,datum}
