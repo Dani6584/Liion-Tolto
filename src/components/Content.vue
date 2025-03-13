@@ -2,31 +2,49 @@
 <div v-if="loaded" class="m-5">
     
     <div class="bg-base-300 rounded-box p-5">
-        
-        <div class = "lg:grid lg:grid-cols-6 lg:gap-0 md:flex md:flex-wrap ">
-            <div class = "col-span-6 h">Akkumulátor-cella azonosítója: {{k}}</div>
-            <div class = "col-span-6"><br></div>
+        <div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">
+            
+            <div class="col-span-6">
+                <div class = "col-span-6 h">Akkumulátor-cella azonosítója: {{k}}</div>
+                <div class = "col-span-6"><br></div>
+            </div>
 
-            <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
-            <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
-            <div class = "t" v-if="m_kezdes != undefined">{{ datum(m_kezdes) }}</div>
-            <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-            <div class = "t" v-if="m_vege != undefined">{{ datum(m_vege) }}</div>
-            <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-            <div class = "t" v-if="t_kezdes != undefined">{{ datum(t_kezdes) }}</div>
-            <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
-            <div class = "t" v-if="t_vege != undefined">{{ datum(t_vege) }}</div>
-            <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
-            <div class = "t" v-if="jr == true">Jó</div>
-            <div class = "t" v-else-if="jr == false">Rossz</div>
-            <div class = "t" v-else="jr == undefined">Folyamatban</div>
+            <div class="col-span-1">
+                <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
+                <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
+                <div class = "d">Mért feszültség</div>
+            </div>
+            
+            <div class="col-span-1">
+                <div class = "t" v-if="m_kezdes != undefined">{{ datum(m_kezdes) }}</div>
+                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
+                <div class = "d">Merítési idejének kezdete</div>
+            </div>
 
-            <div class = "d">Mért feszültség</div>
-            <div class = "d">Merítési idejének kezdete</div>
-            <div class = "d">Merítés idejének vége</div>
-            <div class = "d">Töltés idejének kezdete</div>
-            <div class = "d">Töltés idejének vége</div>
-            <div class = "d">Cella állapota</div>
+            <div class="col-span-1">
+                <div class = "t" v-if="m_vege != undefined">{{ datum(m_vege) }}</div>
+                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
+                <div class = "d">Merítés idejének vége</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="t_kezdes != undefined">{{ datum(t_kezdes) }}</div>
+                <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
+                <div class = "d">Töltés idejének kezdete</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="t_vege != undefined">{{ datum(t_vege) }}</div>
+                <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
+                <div class = "d">Töltés idejének vége</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="jr == true">Jó</div>
+                <div class = "t" v-else-if="jr == false">Rossz</div>
+                <div class = "t" v-else="jr == undefined">Folyamatban</div>
+                <div class = "d">Cella állapota</div>
+            </div>
         </div>
     </div>
     
