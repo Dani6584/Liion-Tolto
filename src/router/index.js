@@ -14,7 +14,7 @@ const router = createRouter({
     },
     {
       path: '/data/:id',
-      name: 'data2',
+      name: 'data2', 
       component: () => import('@/components/Content.vue'),
     },
     {

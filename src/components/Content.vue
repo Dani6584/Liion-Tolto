@@ -67,6 +67,7 @@
             async leker()
             {   
                 let k=null;
+                 console.log(this.$route.params.id);
                 if(this.$route.params.id==null) {
                     k=await legujabblekeres();
                 }
@@ -74,7 +75,7 @@
                 {
                     k=this.$route.params.id;
                 }
-
+                console.log(k);
                 await lekeres(k,true)
                 const a = useFetchDataStore()
                 this.feszultseg = a.feszultseg

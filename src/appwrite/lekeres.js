@@ -52,6 +52,7 @@ async function lekeres(docID, pinia = false) {
     _docID=responseID.$id;
     const fetchData= new useFetchDataStore();
     fetchData.setLegujabb(_docID);
+    return _docID;
     
   }
 
