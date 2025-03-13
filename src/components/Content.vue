@@ -1,16 +1,18 @@
 <template>
-<div class=" p-5 gap-10"  v-if="loaded">
-    <div  class="bg-base-300 rounded-box h-30 col-span-3 p-5">
+<div v-if="loaded" class="m-5">
+    
+    <div class="bg-base-300 rounded-box p-5">
+        
         <div class = "lg:grid lg:grid-cols-6 lg:gap-0 md:flex md:flex-wrap ">
-            <div class = "col-span-6 h">Akkumulátor-cella azonosítója: ide jon majd</div>
+            <div class = "col-span-6 h">Akkumulátor-cella azonosítója: {{k}}</div>
             <div class = "col-span-6"><br></div>
+
             <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
             <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
             <div class = "t" v-if="m_kezdes != undefined">{{ datum(m_kezdes) }}</div>
             <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
             <div class = "t" v-if="m_vege != undefined">{{ datum(m_vege) }}</div>
             <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-            
             <div class = "t" v-if="t_kezdes != undefined">{{ datum(t_kezdes) }}</div>
             <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
             <div class = "t" v-if="t_vege != undefined">{{ datum(t_vege) }}</div>
@@ -18,6 +20,7 @@
             <div class = "t" v-if="jr == true">Jó</div>
             <div class = "t" v-else-if="jr == false">Rossz</div>
             <div class = "t" v-else="jr == undefined">Folyamatban</div>
+
             <div class = "d">Mért feszültség</div>
             <div class = "d">Merítési idejének kezdete</div>
             <div class = "d">Merítés idejének vége</div>
@@ -26,10 +29,11 @@
             <div class = "d">Cella állapota</div>
         </div>
     </div>
-    <div class="flex flex-wrap ">
-        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 m-5"><merites class="h-auto" /></div>
-        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 m-5" ><toltes class="h-auto"/></div>
-        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96  max-w-md  p-5 m-5" ><szazalekkor class="h-auto"/></div>
+    
+    <div class="flex flex-wrap">
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5  mt-5 mr-5"><merites class="h-auto" /></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 mt-5 mr-5" ><toltes class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96  max-w-md  p-5 mt-5 mr-5" ><szazalekkor class="h-auto"/></div>
     </div>
 </div>
 </template>
@@ -61,22 +65,21 @@
                 t_kezdes: null,
                 t_vege: null,
                 jr: null,
+                k: null,
                 loaded:false
             }
         },
         methods:{
             async leker()
             {   
-                let k=null;
-                 console.log(this.$route.params.id);
+                let k=null
                 if(this.$route.params.id==null) {
-                    k=await legujabblekeres();
-                    //console.log('hallo2')
+                    k=await legujabblekeres()
                 }
                 else {
-                    k=this.$route.params.id;
+                    k=this.$route.params.id
                 }
-               // console.log(k);
+                console.log(k)
                 await lekeres(k,true)
                 const a = useFetchDataStore()
                 this.feszultseg = a.feszultseg
@@ -86,6 +89,7 @@
                 this.t_vege = a.toltes_vege
                 this.jr = a.jo_rossz
                 
+                this.k = k
                 this.loaded=true;
             },
 
