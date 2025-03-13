@@ -15,12 +15,12 @@ export default {
       docID: '67abb6110001665eb916',
 
       loaded: false,
-        _fesz: [],
+      _fesz: [],
       _idok: []
     };
   },
   mounted() {
-    this.lekeres();
+    //this.lekeres();
     //setInterval(() => {this.lekeres()}, 600000);
   },
 

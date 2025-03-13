@@ -3,17 +3,16 @@ import { Query } from "appwrite";
 import ids from '@/appwrite/ids.json';
 import moment from 'moment/min/moment-with-locales';
 import {useFetchDataStore} from  "../stores/FetchDataStore";
-//import FetchData from '@/components/FetchData.vue';
 
-async function lekeres(docID,pinia=false) {
-    let _fesz,_idok;
-    let _fesz2,_idok2;
+async function lekeres(docID, pinia = false) {
+    let _fesz, _idok;
+    let _fesz2, _idok2;
+    let data;
     
     try {
       const response = await database.getDocument(ids.database_id, ids.akkumulator_id, docID);
-      let data = response;
+      data = response;
       const fetchData= new useFetchDataStore();
-      
       const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
       _fesz = MeritesResponse.documents.map(doc => doc.voltage);
       _idok = MeritesResponse.documents.map(doc => datum(doc.$createdAt));
@@ -21,27 +20,25 @@ async function lekeres(docID,pinia=false) {
       const ToltesResponse = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
       _fesz2 = ToltesResponse.documents.map(doc => doc.voltage);
       _idok2 = ToltesResponse.documents.map(doc => datum(doc.$createdAt));
-      console.log("HALO");
       
-      if(pinia==true)
-      {
-        fetchData.setFesz(_fesz);
-        fetchData.setIdok(_idok);
+      if(pinia) {
+        // Meritesi adatok
+        fetchData.setFesz(_fesz)
+        fetchData.setIdok(_idok)
+        
+        // Toltesi adatok
+        fetchData.setFesz2(_fesz2)
+        fetchData.setIdok2(_idok2)
 
-        fetchData.setFesz2(_fesz2);
-        fetchData.setIdok2(_idok2);
+        // Altalanos adatok
+        fetchData.setData(data)
         return {}
-        }
-
-      //this.loaded = true;
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
-    } finally {
-      //this.loading = false;
     }
     return {
-        _fesz,_idok,
-        _fesz2,_idok2
+        _fesz,_idok,_fesz2,_idok2,data
     }
   }
 

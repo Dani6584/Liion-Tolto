@@ -18,14 +18,14 @@ export const useFetchDataStore = defineStore('FetchData', {
   }),
   actions: {
     setData(data) {
-        this.feszultseg = data.feszultseg;
-        this.szazalek = data.szazalek;
-        this.merites_kezdes = data.merites_kezdes;
-        this.merites_vege = data.merites_vege;
-        this.toltes_kezdes = data.toltes_kezdes;
-        this.toltes_vege = data.toltes_vege;
-        this.jo_rossz = data.jo_rossz;
-        this.belso_ellenallas = data.belso_ellenallas;
+        this.feszultseg = data.feszultseg
+        this.szazalek = data.szazalek
+        this.merites_kezdes = data.merites_kezdes
+        this.merites_vege = data.merites_vege
+        this.toltes_kezdes = data.toltes_kezdes
+        this.toltes_vege = data.toltes_vege
+        this.jo_rossz = data.jo_rossz
+        this.belso_ellenallas = data.belso_ellenallas
       },
     setFesz(_fesz) {
       this.fesz=_fesz
