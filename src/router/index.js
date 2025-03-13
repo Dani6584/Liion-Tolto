@@ -12,6 +12,16 @@ const router = createRouter({
       name: 'data',
       component: () => import('@/components/Content.vue'),
     },
+    {
+      path: '/data/:id',
+      name: 'data2',
+      component: () => import('@/components/Content.vue'),
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: () => import('@/components/Lista.vue'),
+    }
   ],
 })
 

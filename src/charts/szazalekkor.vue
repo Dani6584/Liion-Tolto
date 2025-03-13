@@ -23,30 +23,34 @@ export default {
             labels: [],
             datasets: [
                 {
-                    label: 'Szazalek',
-                    borderColor: ['#1e820f'],
-                    backgroundColor: ['#46e62d'],
+                    borderColor: ['#1e820f', '#16191E'],
+                    backgroundColor: ['#46e62d', '#16191E'],
                     borderWidth: 5,
-                    data: [100]
+                    data: [10, 100-10] 
                 }
             ]
         },
-        
-        options : {
+    }
+  },
+
+  computed: {
+    options() {
+        return{
             responsive: true,
             maintainAspectRatio: false,
             
             rotation: -90,
             circumference: 180,
-            
+            hover: { mode: null },
             plugins: {
+                title: { display: true, text: 'Szazalek', color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}},
+
                 legend:  { display: false },
                 tooltip: { enabled: false }
             }
         }
     }
   }
-  
 }
 </script>
 

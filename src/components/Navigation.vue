@@ -12,7 +12,7 @@
     <div class="flex-1 ">
       <ul class="menu menu-horizontal px-1">
         <li><RouterLink class="nav btn btn-ghost" to="/data">Adatok</RouterLink></li>
-        <li><a class="nav btn btn-ghost">Korábbi</a></li>
+        <li><RouterLink class="nav btn btn-ghost" to="/history">Korábbi</RouterLink></li>
       </ul>
     </div>
 

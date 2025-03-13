@@ -13,7 +13,8 @@ export const useFetchDataStore = defineStore('FetchData', {
     fesz:[],
     idok:[],
     fesz2:[],
-    idok2:[]
+    idok2:[],
+    legujabb_cella:null
 
   }),
   actions: {
@@ -38,6 +39,10 @@ export const useFetchDataStore = defineStore('FetchData', {
     },
     setIdok2(_idok2) {
       this.idok2=_idok2
+    },
+    setLegujabb(_id)
+    {
+      this.legujabb_cella=_id;
     }
   },
 });

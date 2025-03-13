@@ -1,44 +1,36 @@
 <template>
-    <div class="grid grid-cols-3 p-5 gap-10">
-
-        <div  class="bg-base-300 rounded-box h-30 col-span-3 p-5">
-            <div class = "grid grid-cols-6 gap-0">
-                <div class = "col-span-6 h">Akkumulátor-cella azonosítója: ide jon majd</div>
-                <div class = "col-span-6"><br></div>
-
-                <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
-                <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
-
-                <div class = "t" v-if="m_kezdes != undefined">{{ datum(m_kezdes) }}</div>
-                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-
-                <div class = "t" v-if="m_vege != undefined">{{ datum(m_vege) }}</div>
-                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-                
-                <div class = "t" v-if="t_kezdes != undefined">{{ datum(t_kezdes) }}</div>
-                <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
-
-                <div class = "t" v-if="t_vege != undefined">{{ datum(t_vege) }}</div>
-                <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
-
-                <div class = "t" v-if="jr == true">Jó</div>
-                <div class = "t" v-else-if="jr == false">Rossz</div>
-                <div class = "t" v-else="jr == undefined">Folyamatban</div>
-
-                <div class = "d">Mért feszültség</div>
-                <div class = "d">Merítési idejének kezdete</div>
-                <div class = "d">Merítés idejének vége</div>
-                <div class = "d">Töltés idejének kezdete</div>
-                <div class = "d">Töltés idejének vége</div>
-                <div class = "d">Cella állapota</div>
-            </div>
+<div class="grid grid-cols-3 p-5 gap-10">
+    <div  class="bg-base-300 rounded-box h-30 col-span-3 p-5">
+        <div class = "grid grid-cols-6 gap-0">
+            <div class = "col-span-6 h">Akkumulátor-cella azonosítója: ide jon majd</div>
+            <div class = "col-span-6"><br></div>
+            <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
+            <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
+            <div class = "t" v-if="m_kezdes != undefined">{{ datum(m_kezdes) }}</div>
+            <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
+            <div class = "t" v-if="m_vege != undefined">{{ datum(m_vege) }}</div>
+            <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
+            
+            <div class = "t" v-if="t_kezdes != undefined">{{ datum(t_kezdes) }}</div>
+            <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
+            <div class = "t" v-if="t_vege != undefined">{{ datum(t_vege) }}</div>
+            <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
+            <div class = "t" v-if="jr == true">Jó</div>
+            <div class = "t" v-else-if="jr == false">Rossz</div>
+            <div class = "t" v-else="jr == undefined">Folyamatban</div>
+            <div class = "d">Mért feszültség</div>
+            <div class = "d">Merítési idejének kezdete</div>
+            <div class = "d">Merítés idejének vége</div>
+            <div class = "d">Töltés idejének kezdete</div>
+            <div class = "d">Töltés idejének vége</div>
+            <div class = "d">Cella állapota</div>
         </div>
-        
-        <div  v-if="loaded" class="grid bg-base-300 rounded-box place-items-center h-auto p-5"><merites/></div>
-        <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><toltes/></div>
-        <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><szazalekkor/></div>
     </div>
     
+    <div  v-if="loaded" class="grid bg-base-300 rounded-box place-items-center h-auto p-5"><merites/></div>
+    <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><toltes/></div>
+    <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><szazalekkor/></div>
+</div>
 </template>
 
 <script>
@@ -47,7 +39,7 @@
     import szazalekkor from '@/charts/szazalekkor.vue';
     import moment from 'moment/min/moment-with-locales';
     import {useFetchDataStore} from "@/stores/FetchDataStore.js";
-    import {lekeres} from "@/appwrite/lekeres.js"
+    import {lekeres,legujabblekeres} from "@/appwrite/lekeres.js"
 
     export default {
         components: {
@@ -74,7 +66,16 @@
         methods:{
             async leker()
             {   
-                await lekeres("67abb6110001665eb916",true)
+                let k=null;
+                if(this.$route.params.id==null) {
+                    k=await legujabblekeres();
+                }
+                else 
+                {
+                    k=this.$route.params.id;
+                }
+
+                await lekeres(k,true)
                 const a = useFetchDataStore()
                 this.feszultseg = a.feszultseg
                 this.m_kezdes = a.merites_kezdes

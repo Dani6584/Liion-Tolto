@@ -8,11 +8,13 @@ async function lekeres(docID, pinia = false) {
     let _fesz, _idok;
     let _fesz2, _idok2;
     let data;
-    
+    let _docID;
     try {
+      
       const response = await database.getDocument(ids.database_id, ids.akkumulator_id, docID);
       data = response;
-
+      //console.log(responseID)
+      
       console.log(data.toltes_kezdete);
       const fetchData= new useFetchDataStore();
       const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
@@ -43,10 +45,19 @@ async function lekeres(docID, pinia = false) {
         _fesz,_idok,_fesz2,_idok2,data
     }
   }
+  async function legujabblekeres()
+  {
+    const responseID = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt"), Query.limit(1)]);
+    let _docID;
+    _docID=responseID.$id;
+    const fetchData= new useFetchDataStore();
+    fetchData.setLegujabb(_docID);
+    
+  }
 
   function datum(a) {
     moment.locale('hu');
     return moment(a).format('MMM Do hh:mm');
   }
 
-  export {lekeres,datum}
+  export {lekeres,datum,legujabblekeres}
