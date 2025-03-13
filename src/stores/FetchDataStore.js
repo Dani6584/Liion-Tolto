@@ -14,7 +14,7 @@ export const useFetchDataStore = defineStore('FetchData', {
     idok:[],
     fesz2:[],
     idok2:[],
-    legujabb_cella:null
+    legujabb_cella: null
 
   }),
   actions: {
@@ -27,7 +27,7 @@ export const useFetchDataStore = defineStore('FetchData', {
         this.toltes_vege = data.toltes_vege
         this.jo_rossz = data.jo_rossz
         this.belso_ellenallas = data.belso_ellenallas
-      },
+    },
     setFesz(_fesz) {
       this.fesz=_fesz
     },
@@ -40,9 +40,8 @@ export const useFetchDataStore = defineStore('FetchData', {
     setIdok2(_idok2) {
       this.idok2=_idok2
     },
-    setLegujabb(_id)
-    {
-      this.legujabb_cella=_id;
+    setLegujabb(_id) {
+      this.legujabb_cella=_id
     }
   },
 });

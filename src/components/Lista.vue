@@ -1,11 +1,9 @@
 <template>
-<div class = "listaa">
-<ul class= "list-disc">
-    <li ></li>
-</ul>
-
+<div>
+    <ul class= "list-disc m-10">
+        <li>elso</li>
+    </ul>
 </div>
-
 </template>
 
 
@@ -13,7 +11,4 @@
 </script>
 
 <style>
-.listaa {
-    margin-left: 100px;
-}
 </style>
