@@ -1,7 +1,7 @@
 <template>
-<div class="grid grid-cols-3 p-5 gap-10">
+<div class=" p-5 gap-10"  v-if="loaded">
     <div  class="bg-base-300 rounded-box h-30 col-span-3 p-5">
-        <div class = "grid grid-cols-6 gap-0">
+        <div class = "lg:grid lg:grid-cols-6 lg:gap-0 md:flex md:flex-wrap ">
             <div class = "col-span-6 h">Akkumulátor-cella azonosítója: ide jon majd</div>
             <div class = "col-span-6"><br></div>
             <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
@@ -26,10 +26,11 @@
             <div class = "d">Cella állapota</div>
         </div>
     </div>
-    
-    <div  v-if="loaded" class="grid bg-base-300 rounded-box place-items-center h-auto p-5"><merites/></div>
-    <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><toltes/></div>
-    <div  v-if="loaded" class="bg-base-300 rounded-box place-items-center h-auto p-5"><szazalekkor/></div>
+    <div class="flex flex-wrap ">
+        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 m-5"><merites class="h-auto" /></div>
+        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 m-5" ><toltes class="h-auto"/></div>
+        <div  v-if="loaded" class="bg-base-300 rounded-box min-w-96  max-w-md  p-5 m-5" ><szazalekkor class="h-auto"/></div>
+    </div>
 </div>
 </template>
 
@@ -70,12 +71,12 @@
                  console.log(this.$route.params.id);
                 if(this.$route.params.id==null) {
                     k=await legujabblekeres();
+                    //console.log('hallo2')
                 }
-                else 
-                {
+                else {
                     k=this.$route.params.id;
                 }
-                console.log(k);
+               // console.log(k);
                 await lekeres(k,true)
                 const a = useFetchDataStore()
                 this.feszultseg = a.feszultseg

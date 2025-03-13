@@ -1,6 +1,6 @@
 <template>
   <div class="linechart">
-    <Line v-if="loaded" :data="data" :options="options" />
+    <Line height="300px" v-if="loaded" :data="data" :options="options" />
   </div>
 </template>
 
@@ -88,7 +88,7 @@ export default {
 
 <style>
 .linechart {
-  max-width: 800px;
-  position: relative;
+  /*max-width: 800px;
+  position: relative;*/
 }
 </style>

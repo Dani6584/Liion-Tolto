@@ -13,7 +13,6 @@ async function lekeres(docID, pinia = false) {
       
       const response = await database.getDocument(ids.database_id, ids.akkumulator_id, docID);
       data = response;
-      //console.log(responseID)
       
       console.log(data.toltes_kezdete);
       const fetchData= new useFetchDataStore();
@@ -49,7 +48,8 @@ async function lekeres(docID, pinia = false) {
   {
     const responseID = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt"), Query.limit(1)]);
     let _docID;
-    _docID=responseID.$id;
+    _docID=responseID.documents[0].$id;
+
     const fetchData= new useFetchDataStore();
     fetchData.setLegujabb(_docID);
     return _docID;

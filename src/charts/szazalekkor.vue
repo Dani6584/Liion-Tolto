@@ -1,6 +1,6 @@
 <template>
-    <div class = "size">
-        <Doughnut :data="data" :options="options" />
+    <div >
+        <Doughnut height="300px"  :data="data" :options="options" />
     </div>
 </template>
 
@@ -37,7 +37,7 @@ export default {
     options() {
         return{
             responsive: true,
-            maintainAspectRatio: false,
+            //maintainAspectRatio: false,
             
             rotation: -90,
             circumference: 180,
@@ -56,7 +56,7 @@ export default {
 
 <style scoped>
 .size {
-    width: 400px;
-    height: auto;
+   /* width: 400px;
+    height: auto;*/
 }
 </style>

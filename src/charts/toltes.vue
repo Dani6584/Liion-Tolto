@@ -1,6 +1,6 @@
 <template>
   <div class="linechart">
-    <Line v-if="loaded" :data="data" :options="options" />
+    <Line height="300px" v-if="loaded" :data="data" :options="options" />
   </div>
 </template>
 
@@ -66,8 +66,8 @@ export default {
   computed: {
     options() {
       return {
-        responsive: true,
-        maintainAspectRatio: true,
+        //responsive: true,
+        //maintainAspectRatio: true,
 
         scales: {
           x: { title:{display: true, text: 'Eltelt Idő', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}},
@@ -87,7 +87,7 @@ export default {
 
 <style>
 .linechart {
-  max-width: 800px;
-  position: relative;
+ /* max-width: 800px;
+  position: relative;*/
 }
 </style>
