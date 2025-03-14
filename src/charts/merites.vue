@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import {useFetchDataStore} from "@/stores/FetchDataStore.js";
+import {useFetchDataStore} from "@/stores/FetchDataStore.js"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -26,7 +26,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend
-);
+)
 
 export default {
   name: "Graph",
@@ -34,13 +34,13 @@ export default {
     Line
   },
   mounted() {
-    const a=useFetchDataStore();
+    const a=useFetchDataStore()
     console.log(a.idok)
 
-    this.data.labels=a.idok;
-    this.data.datasets[0].data=a.fesz;
+    this.data.labels=a.idok
+    this.data.datasets[0].data=a.fesz
 
-    this.loaded=true;
+    this.loaded=true
   },
 
   data() {
@@ -54,7 +54,6 @@ export default {
         datasets: [
         {
           label: 'Merítési görbe',
-          fontcolor: '#eeeef1',
           borderColor: '#46e62d',
           backgroundColor: '#1e820f',
           pointRadius: 5,
@@ -62,7 +61,7 @@ export default {
           data: []
         }]
       }
-    };
+    }
   },
   computed: {
     options() {
@@ -80,11 +79,8 @@ export default {
           tooltip: {labels:{color: '#a8adbb'}}  
         }
 
-      };
+      }
     }
   }
-};
+}
 </script>
-
-<style>
-</style>

@@ -11,18 +11,16 @@
     </thead>
 
     <tbody>
-        
         <tr @click="ugrik(docID.id)" class="hover:bg-base-300" v-for="(docID, index) in _docIDs" :key="docID.id">
-        <td >{{ index+1 }}</td>
-        <td >
-            <span  v-if="docID.kod == '---'">Ismeretlen cella</span>
-            <span   v-else>{{ docID.kod }}</span>
+        <td>{{ index+1 }}</td>
+        <td>
+            <span v-if="docID.kod == '---'">Ismeretlen cella</span>
+            <span v-else>{{ docID.kod }}</span>
         </td>
         
-        <td><span   > {{ datum(docID.kdatum) }}</span></td>
-        <td><span   > {{ datum(docID.vdatum) }}</span></td>
+        <td><span>{{ datum(docID.kdatum) }}</span></td>
+        <td><span>{{ datum(docID.vdatum) }}</span></td>
       </tr>
-   
     </tbody>
   </table>
 
@@ -35,19 +33,14 @@ import { Query } from "appwrite"
 import ids from '@/appwrite/ids.json'
 import moment from 'moment/min/moment-with-locales';
 
-
-
 export default {
     mounted() {
         this.korabbilekeres();
-        
         setInterval(() => {this.korabbilekeres()}, 5*60000);
     },
-
     data () {
         return { loaded:false,_docIDs:[] }
     },
-
     methods:{
         async korabbilekeres() {  
             this._docIDs=[];
@@ -70,18 +63,12 @@ export default {
             }
         },
         datum(a) {
-        moment.locale('hu');
-        return moment(a).format('MMMM DD hh:mm');
+            moment.locale('hu');
+            return moment(a).format('MMMM DD hh:mm');
+        },
+        ugrik(a) {
+            this.$router.push(`/data/${a}`);
+        }
     },
-    ugrik(a)
-    {
-        this.$router.push(`/data/${a}`);
-    }
-    },
-    
-    
 }
 </script>
-
-<style>
-</style>

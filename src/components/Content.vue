@@ -44,75 +44,73 @@
     </div>
     
     <div class="flex flex-wrap">
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5  mt-5 mr-5"><merites class="h-auto" /></div>
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md  p-5 mt-5 mr-5" ><toltes class="h-auto"/></div>
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96  max-w-md   p-5 mt-5 mr-5" ><szazalekkor class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><merites class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><toltes class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><szazalekkor class="h-auto"/></div>
     </div>
 </div>
 </template>
 
 <script>
-    import merites from '@/charts/merites.vue';
-    import toltes from '@/charts/toltes.vue';
-    import szazalekkor from '@/charts/szazalekkor.vue';
-    import moment from 'moment/min/moment-with-locales';
-    import {useFetchDataStore} from "@/stores/FetchDataStore.js";
-    import {lekeres,legujabblekeres} from "@/appwrite/lekeres.js"
+import merites from '@/charts/merites.vue';
+import toltes from '@/charts/toltes.vue';
+import szazalekkor from '@/charts/szazalekkor.vue';
+import moment from 'moment/min/moment-with-locales';
+import {useFetchDataStore} from "@/stores/FetchDataStore.js";
+import {lekeres,legujabblekeres} from "@/appwrite/lekeres.js"
 
-    export default {
-        components: {
-            merites,
-            toltes,
-            szazalekkor
-        },
-        mounted() {
-            this.leker();
-            setInterval(() => {this.lekeres()}, 5*60000);
-        },
-
-        data () {
-            return {
-                feszultseg: null,
-                m_kezdes: null,
-                m_vege: null,
-                t_kezdes: null,
-                t_vege: null,
-                jr: null,
-                k: null,
-                loaded:false
+export default {
+    components: {
+        merites,
+        toltes,
+        szazalekkor
+    },
+    mounted() {
+        this.leker();
+        setInterval(() => {this.lekeres()}, 5*60000);
+    },
+    data () {
+        return {
+            feszultseg: null,
+            m_kezdes: null,
+            m_vege: null,
+            t_kezdes: null,
+            t_vege: null,
+            jr: null,
+            k: null,
+            loaded:false
+        }
+    },
+    methods:{
+        async leker()
+        {   
+            let k=null
+            if(this.$route.params.id==null) {
+                k=await legujabblekeres()
             }
-        },
-        methods:{
-            async leker()
-            {   
-                let k=null
-                if(this.$route.params.id==null) {
-                    k=await legujabblekeres()
-                }
-                else {
-                    k=this.$route.params.id
-                }
-                console.log(k)
-                await lekeres(k,true)
-                
-                const a = useFetchDataStore()
-                this.feszultseg = a.feszultseg
-                this.m_kezdes = a.merites_kezdes
-                this.m_vege = a.merites_vege
-                this.t_kezdes = a.toltes_kezdes
-                this.t_vege = a.toltes_vege
-                this.jr = a.jo_rossz
-                
-                this.k = k
-                this.loaded=true;
-            },
-
-            datum(a) {
-                moment.locale('hu');
-                return moment(a).format('hh:mm');
+            else {
+                k=this.$route.params.id
             }
+            console.log(k)
+            await lekeres(k,true)
+            
+            const a = useFetchDataStore()
+            this.feszultseg = a.feszultseg
+            this.m_kezdes = a.merites_kezdes
+            this.m_vege = a.merites_vege
+            this.t_kezdes = a.toltes_kezdes
+            this.t_vege = a.toltes_vege
+            this.jr = a.jo_rossz
+            
+            this.k = k
+            this.loaded=true;
         },
-    }
+        datum(a) {
+            moment.locale('hu');
+            return moment(a).format('hh:mm');
+        }
+    },
+}
 </script>
 
 <style>

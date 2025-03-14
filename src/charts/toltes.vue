@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import {useFetchDataStore} from "@/stores/FetchDataStore.js";
+import {useFetchDataStore} from "@/stores/FetchDataStore.js"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -16,7 +16,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import { Line } from 'vue-chartjs';
+import { Line } from 'vue-chartjs'
 
 ChartJS.register(
   CategoryScale,
@@ -26,7 +26,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend
-);
+)
 
 export default {
   name: "Graph",
@@ -34,13 +34,13 @@ export default {
     Line
   },
   mounted() {
-    const b=useFetchDataStore();
+    const b=useFetchDataStore()
     console.log(b.idok2)
 
-    this.data.labels=b.idok2;
-    this.data.datasets[0].data=b.fesz2;
+    this.data.labels=b.idok2
+    this.data.datasets[0].data=b.fesz2
 
-    this.loaded=true;
+    this.loaded=true
   },
 
   data() {
@@ -61,13 +61,13 @@ export default {
           data: []
         }]
       }
-    };
+    }
   },
   computed: {
     options() {
       return {
-        //responsive: true,
-        //maintainAspectRatio: true,
+        responsive: true,
+        maintainAspectRatio: true,
 
         scales: {
           x: { title:{display: true, text: 'Eltelt Idő', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}},
@@ -79,10 +79,10 @@ export default {
           tooltip: {labels:{color: '#a8adbb'}}  
         }
 
-      };
+      }
     }
   }
-};
+}
 </script>
 
 <style>
