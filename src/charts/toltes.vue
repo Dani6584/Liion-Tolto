@@ -73,12 +73,10 @@ export default {
           x: { title:{display: true, text: 'Eltelt Idő', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}},
           y: { title:{display: true, text: 'Feszültség', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}}
         },
-
         plugins: {
           legend:  {labels:{color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}},
           tooltip: {labels:{color: '#a8adbb'}}  
         }
-
       }
     }
   }

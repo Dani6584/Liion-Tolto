@@ -1,6 +1,5 @@
 <template>
 <div v-if="loaded" class="m-5">
-
     <div class="bg-base-300 rounded-box p-5">
         <div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">
 
@@ -42,11 +41,11 @@
             </div>
         </div>
     </div>
-    
+
     <div class="flex flex-wrap">
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><merites class="h-auto"/></div>
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><toltes class="h-auto"/></div>
-        <div v-if="loaded" class="bg-base-300 rounded-box min-w-96 max-w-md p-5 mt-5 mr-5"><szazalekkor class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5 mr-5"><merites class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5 mr-5"><toltes class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5"><szazalekkor class="h-auto"/></div>
     </div>
 </div>
 </template>

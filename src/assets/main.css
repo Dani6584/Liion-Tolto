@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 .content{
-    max-width: 1500px;
-    max-height: 900px;
+    max-width: 1424px;
     margin: auto;
 }

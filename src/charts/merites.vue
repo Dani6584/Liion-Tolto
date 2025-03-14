@@ -78,7 +78,6 @@ export default {
           legend:  {labels:{color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}},
           tooltip: {labels:{color: '#a8adbb'}}  
         }
-
       }
     }
   }

@@ -1,13 +1,12 @@
 <template>
-<!--<div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">-->
-<div v-if="loaded" class="flex flex-wrap bg-base-300 rounded-box min-w-96  p-5 mt-5 mr-5">
+<div v-if="loaded" class="flex flex-wrap bg-base-300 rounded-box min-w-96 p-5 mt-5 overflow-auto">
   <table class="table">
     <thead>
       <tr class="cim">
         <th></th>
         <th>Akkumulátor-cella kódja</th>
-        <th>Kezdési idő</th>
-        <th>Befejezési idő</th>
+        <th>Kezdés időpontja</th>
+        <th>Befejezés időpontja</th>
       </tr>
     </thead>
 

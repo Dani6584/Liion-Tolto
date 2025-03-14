@@ -1,5 +1,5 @@
 <template>
-    <div >
+    <div>
         <Doughnut height="300px"  :data="data" :options="options" />
     </div>
 </template>
@@ -16,36 +16,35 @@ export default {
       Doughnut
     },  
     data() {
-      return {
-          data: {
-              labels: [],
-              datasets: [
-                  {
-                      borderColor: ['#1e820f', '#16191E'],
-                      backgroundColor: ['#46e62d', '#16191E'],
-                      borderWidth: 5,
-                      data: [10, 100-10] 
-                  }
-              ]
-          },
-      }
+        return {
+            data: {
+                labels: [],
+                datasets: [
+                {
+                    borderColor: ['#1e820f', '#16191E'],
+                    backgroundColor: ['#46e62d', '#16191E'],
+                    borderWidth: 5,
+                    data: [10, 100-10] 
+                }]
+            },
+        }
     },  
     computed: {
-      options() {
-          return{
-              responsive: true,
-              maintainAspectRatio: true,
+        options() {
+            return{
+                responsive: true,
+                maintainAspectRatio: true,
 
-              rotation: -90,
-              circumference: 180,
-              hover: { mode: null },
-              plugins: {
-                  title: { display: true, text: 'Szazalek', color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}, 
-                  legend: { display: false },
-                  tooltip: { enabled: false }
-              }
-          }
-      }
+                rotation: -90,
+                circumference: 180,
+                hover: { mode: null },
+                plugins: {
+                    title: { display: true, text: 'Szazalek', color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}, 
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        }
     }
 }
 </script>
