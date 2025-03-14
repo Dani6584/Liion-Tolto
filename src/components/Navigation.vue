@@ -6,7 +6,7 @@
   </div>
   <div class="flex-1">
     <ul class="menu menu-horizontal px-1">
-      <li><RouterLink class="nav btn btn-ghost" to="/data">Folyatban</RouterLink></li>
+      <li><RouterLink class="nav btn btn-ghost" to="/data">Folyamatban</RouterLink></li>
       <li><RouterLink class="nav btn btn-ghost" to="/history">Korábbi</RouterLink></li>
     </ul>
   </div>
