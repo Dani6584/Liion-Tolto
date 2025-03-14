@@ -1,10 +1,8 @@
 <template>
 <div v-if="loaded" class="m-5">
-    
+
     <div class="bg-base-300 rounded-box p-5">
         <div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">
-            
-           
 
             <div class="col-span-1">
                 <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
@@ -96,6 +94,7 @@
                 }
                 console.log(k)
                 await lekeres(k,true)
+                
                 const a = useFetchDataStore()
                 this.feszultseg = a.feszultseg
                 this.m_kezdes = a.merites_kezdes

@@ -37,6 +37,7 @@ async function lekeres(docID, pinia = false) {
     }
   }
 
+  // Legutolso
   async function legujabblekeres() {
     const responseID = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt"), Query.limit(1)]);
     _docID=responseID.documents[0].$id;
@@ -45,10 +46,10 @@ async function lekeres(docID, pinia = false) {
     fetchData.setLegujabb(_docID);
     return _docID;
   }
-
+  
   function datum(a) {
     moment.locale('hu');
     return moment(a).format('MMM Do hh:mm');
   }
 
-export {lekeres,legujabblekeres, datum}
+export {lekeres, legujabblekeres, datum}

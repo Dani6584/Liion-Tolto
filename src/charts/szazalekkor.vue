@@ -16,7 +16,6 @@ export default {
     Doughnut
   },
 
-  // Config
   data() {
     return {
         data: {
@@ -54,9 +53,5 @@ export default {
 }
 </script>
 
-<style scoped>
-.size {
-   /* width: 400px;
-    height: auto;*/
-}
+<style>
 </style>
