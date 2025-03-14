@@ -4,5 +4,5 @@
 
 <template>
   <div><Navigation/></div>
-  <div><RouterView/></div>
+  <div class="content"><RouterView/></div>
 </template>
