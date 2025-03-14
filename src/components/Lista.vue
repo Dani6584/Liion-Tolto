@@ -1,8 +1,9 @@
 <template>
-<div class="flex">
-  <table class="w-3/4 table">
+        <!--<div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">-->
+<div v-if="loaded" class="flex flex-wrap bg-base-300 rounded-box min-w-96  p-5 mt-5 mr-5">
+  <table class="table">
     <thead>
-      <tr>
+      <tr class="cim">
         <th></th>
         <th>Akkumulátor-cella kódja</th>
         <th>Kezdési idő</th>
@@ -10,8 +11,8 @@
       </tr>
     </thead>
 
-    <tbody>
-        <tr @click="ugrik(docID.id)" class="hover:bg-base-300" v-for="(docID, index) in _docIDs" :key="docID.id">
+    <tbody class="tartalom">
+        <tr @click="ugrik(docID.id)" class="hover:bg-base-100" v-for="(docID, index) in _docIDs" :key="docID.id">
         <td>{{ index+1 }}</td>
         <td>
             <span v-if="docID.kod == '---'">Ismeretlen cella</span>
@@ -46,20 +47,16 @@ export default {
             this._docIDs=[];
             try {
                 const responseIDs = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt")])
-                //console.log(responseIDs);
-                //this._docIDs=responseIDs.documents.map(doc => doc.$id)
                 responseIDs.documents.forEach(element => {
                     console.log(element)
                     this._docIDs.push({id:element.$id,kod:element.leolvasottkod, kdatum:element.$createdAt, vdatum:element.toltes_vege});
                 });
-                console.log(this._docIDs)
-                this.loaded=true
             }
             catch (error) {
                 console.error("Error fetching data: ", error)
             }
             finally {
-               // this.loaded=true
+               this.loaded=true
             }
         },
         datum(a) {
@@ -72,3 +69,17 @@ export default {
     },
 }
 </script>
+
+<style>
+.cim {
+    color: #eeeef1;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-family: "Poppins", sans-serif;
+}
+.tartalom {
+    color: #c3c3c6;
+    font-size: 0.875rem;
+    font-family: "Inter", sans-serif;
+}
+</style>

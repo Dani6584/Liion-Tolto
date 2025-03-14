@@ -1,6 +1,5 @@
 <template>
-<div class="bar bg-base">
-  <div class="navbar bg-base" >
+<div class="navbar bg-base szoveg" >
 
     <div class="flex-none">
       <a class="btn btn-ghost text-xl">Liion Töltő</a>
@@ -14,13 +13,11 @@
     </div>
 
   </div>
-</div>
-
 </template>
 
-<script>
-  import { RouterLink } from 'vue-router'
-</script>
-
 <style>
+.szoveg {
+  color: #c3c3c6;
+  font-family: "Inter", sans-serif;
+}
 </style>
