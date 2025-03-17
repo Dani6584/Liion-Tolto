@@ -34,6 +34,7 @@ async function lekeres(docID, pinia = false) {
       _fesz,_idok,_fesz2,_idok2,_data
   }
 }
+//cucc
 
 async function legujabblekeres() {
   const responseID = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt"), Query.limit(1)]);
