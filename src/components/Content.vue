@@ -106,7 +106,7 @@ export default {
         },
         datum(a) {
             moment.locale('hu');
-            return moment(a).format('hh:mm');
+            return moment.utc(a).format('hh:mm'); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
     },
 }
