@@ -43,8 +43,8 @@
     </div>
 
     <div class="flex flex-wrap">
-        <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5 mr-5"><merites class="h-auto"/></div>
         <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5 mr-5"><toltes class="h-auto"/></div>
+        <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5 mr-5"><merites class="h-auto"/></div>
         <div v-if="loaded" class="bg-base-300 rounded-box max-w-md p-5 mt-5"><szazalekkor class="h-auto"/></div>
     </div>
 </div>

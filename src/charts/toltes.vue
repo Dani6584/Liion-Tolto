@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Line style="align-items: center" height="300px" v-if="loaded" :data="data" :options="options" />
+    <Line style="align-items: center" height="300px" v-if="loaded" :data="data" :options="options"/>
   </div>
 </template>
 
@@ -39,6 +39,7 @@ export default {
 
     this.data.labels=b.idok2
     this.data.datasets[0].data=b.fesz2
+    this.data.datasets[1].data=b.tcurrent
 
     this.loaded=true
   },
@@ -47,19 +48,29 @@ export default {
     return {
       idok2:[],
       fesz2:[],
+      tcurrent:[],
       
       loaded:false,
       data:{
         labels: [],
         datasets: [
         {
-          label: 'Töltési görbe',
+          label: 'Feszültség',
           borderColor: '#46e62d',
           backgroundColor: '#1e820f',
           pointRadius: 5,
           fill: false,
           data: []
-        }]
+        },
+        {
+          label: 'Áram',
+          borderColor: '#f56e6e',
+          backgroundColor: '#c74c4c',
+          pointRadius: 5,
+          fill: false,
+          data: []
+        }
+        ]
       }
     }
   },
@@ -68,14 +79,16 @@ export default {
       return {
         responsive: true,
         maintainAspectRatio: true,
-
+        
         scales: {
           x: { title:{display: true, text: 'Eltelt Idő', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}},
-          y: { title:{display: true, text: 'Feszültség', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}}
+          y: { title:{display: true, text: 'Feszültség / Áram', color: '#c3c3c6'}, ticks:{color: '#a8adbb'}, grid:{color: '#5a5e66'}}
         },
         plugins: {
-          legend:  {labels:{color: '#eeeef1', font: { family: 'Poppins', weight: '400', size: 20}}},
-          tooltip: {labels:{color: '#a8adbb'}}  
+          title: {display: true, text: 'Töltési görbe', color: '#eeeef1', font: {family: 'Poppins', weight: '400', size: 20}},
+          legend:  {labels:{color: '#c3c3c6', font: { family: 'Poppins', weight: '400', size: 15}}},
+          tooltip: {labels:{color: '#a8adbb'}}
+          
         }
       }
     }

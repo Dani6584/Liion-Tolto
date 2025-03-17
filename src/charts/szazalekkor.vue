@@ -7,6 +7,7 @@
 <script>
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
+import {useFetchDataStore} from "@/stores/FetchDataStore.js"
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -15,6 +16,11 @@ export default {
     components: {
       Doughnut
     },  
+    mounted() {
+        const a=useFetchDataStore()
+        let valami = a.tcurrent;
+        console.log(valami);        
+    },
     data() {
         return {
             data: {
