@@ -16,7 +16,7 @@ async function lekeres(docID, pinia = false) {
     _fesz = MeritesResponse.documents.map(doc => doc.voltage);
     _idok = MeritesResponse.documents.map(doc => datum(doc.$createdAt));
     _mcurrent = MeritesResponse.documents.map(doc => doc.dischargecurrent);
-
+    
     const ToltesResponse = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
     _fesz2 = ToltesResponse.documents.map(doc => doc.voltage);
     _idok2 = ToltesResponse.documents.map(doc => datum(doc.$createdAt));

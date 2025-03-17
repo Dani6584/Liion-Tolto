@@ -20,10 +20,10 @@ export default {
     mounted() {
         const a=useFetchDataStore()
         let I_avg = 0;
-        for (let i = 0; i < a.tcurrent.length; i++) {
-            I_avg += a.tcurrent[i]
+        for (let i = 0; i < a.mcurrent.length; i++) {
+            I_avg += a.mcurrent[i]
         }
-        I_avg = I_avg / a.tcurrent.length
+        I_avg = I_avg / a.mcurrent.length
         console.log('Atlagszamitas: '+I_avg)
 
         let ido = Math.abs(convert(a.merites_vege) - convert(a.merites_kezdes))
