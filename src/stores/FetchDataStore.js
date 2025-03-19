@@ -3,12 +3,13 @@ import { defineStore } from 'pinia';
 export const useFetchDataStore = defineStore('FetchData', {
   state: () => ({
     feszultseg: null,
-    szazalek: null,
+    kapacitas_szazalek: null,
     merites_kezdes: null,
     merites_vege: null,
     toltes_kezdes: null,
     toltes_vege: null,
-    jo_rossz: null,
+    allapot: null,
+    allapot_uzenet: null,
     belso_ellenallas: null,
     fesz:[],
     idok:[],
@@ -21,12 +22,13 @@ export const useFetchDataStore = defineStore('FetchData', {
   actions: {
     setData(data) {
         this.feszultseg = data.feszultseg
-        this.szazalek = data.szazalek
+        this.kapacitas_szazalek = data.kapacitas_szazalek
         this.merites_kezdes = data.merites_kezdes
         this.merites_vege = data.merites_vege
         this.toltes_kezdes = data.toltes_kezdes
         this.toltes_vege = data.toltes_vege
-        this.jo_rossz = data.jo_rossz
+        this.allapot = data.allapot
+        this.allapot_uzenet = data.allapot_uzenet
         this.belso_ellenallas = data.belso_ellenallas
     },
     setFesz(_fesz) {

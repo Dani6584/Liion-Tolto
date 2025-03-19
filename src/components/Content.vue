@@ -99,7 +99,7 @@ export default {
             this.m_vege = a.merites_vege
             this.t_kezdes = a.toltes_kezdes
             this.t_vege = a.toltes_vege
-            this.jr = a.jo_rossz
+            this.jr = a.allapot
             
             this.k = k
             this.loaded=true;
