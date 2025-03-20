@@ -34,9 +34,9 @@
             </div>
 
             <div class="col-span-1">
-                <div class = "t" v-if="jr == true">Jó</div>
-                <div class = "t" v-else-if="jr == false">Rossz</div>
-                <div class = "t" v-else="jr == undefined">Folyamatban</div>
+                <div class = "t" v-if="allapot == 'jo'">Jó</div>
+                <div class = "t" v-else-if="allapot == 'rossz'">Rossz</div>
+                <div class = "t" v-else>{{allapot}}</div>
                 <div class = "d">Cella állapota</div>
             </div>
         </div>
@@ -75,7 +75,7 @@ export default {
             m_vege: null,
             t_kezdes: null,
             t_vege: null,
-            jr: null,
+            allapot: null,
             k: null,
             loaded:false
         }
@@ -99,7 +99,7 @@ export default {
             this.m_vege = a.merites_vege
             this.t_kezdes = a.toltes_kezdes
             this.t_vege = a.toltes_vege
-            this.jr = a.allapot
+            this.allapot = a.allapot
             
             this.k = k
             this.loaded=true;

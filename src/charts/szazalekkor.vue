@@ -8,8 +8,6 @@
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import {useFetchDataStore} from "@/stores/FetchDataStore.js"
-import moment from 'moment/min/moment-with-locales'
-
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 export default {
