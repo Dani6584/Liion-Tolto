@@ -13,6 +13,11 @@ const router = createRouter({
       component: () => import('@/components/Content.vue'),
     },
     {
+      path: '/OCR',
+      name: 'ocr',
+      component: () => import('@/views/OCR.vue'),
+    },
+    {
       path: '/data/:id',
       name: 'data2', 
       component: () => import('@/components/Content.vue'),
