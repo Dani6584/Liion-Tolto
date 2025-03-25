@@ -6,10 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from pymodbus.client import ModbusTcpClient
 
-# 🌱 Load environment variables
 load_dotenv()
-
-# Appwrite config
 BASE_URL = os.environ.get("APPWRITE_BASE_URL", "https://appwrite.tsada.edu.rs/v1")
 HEADERS = {
     "Content-Type": "application/json",
@@ -18,11 +15,11 @@ HEADERS = {
 }
 
 DATABASE_ID = "67a5b54c00004b1a93d7"
-BATTERY_COLLECTION = "67a5b55b002eceac9c33"
-SETTINGS_COLLECTION = "67de7e600036fcfc5959"
+RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
+Hardware_Flags_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
-LOG_COLLECTION = "67dfc9720019d64746b0"
+BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 
 PLC_IP = os.environ.get("PLC_IP", "192.168.1.5")
 PLC_PORT = int(os.environ.get("PLC_PORT", "502"))
@@ -37,20 +34,53 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 
-STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
+STATUS_TO_POSITION = {
+    1: 0,
+    2: 1,
+    3: 2,
+    4: 3,
+    5: 4,
+    7: 5,
+    9: 5
+}
 current_position = 0
-
 
 def log_to_appwrite(message):
     try:
         requests.post(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{LOG_COLLECTION}/documents",
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{RPI_LOGGING_COLLECTION}/documents",
             headers=HEADERS,
             json={"data": {"MESSAGE": f"{datetime.now().isoformat()} – {message}"}}
         )
     except Exception as e:
         print(f"Logging failed: {e}")
 
+def get_active_cell_id():
+    doc = get_setting("ACTIVE_CELL_ID")
+    return doc.get("setting_data") if doc else None
+
+def get_setting(setting_name):
+    try:
+        r = requests.get(
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{Hardware_Flags_COLLECTION}/documents"
+            f"?queries[]=equal(\"setting_name\",\"{setting_name}\")&queries[]=limit(1)",
+            headers=HEADERS
+        )
+        if r.status_code == 200:
+            return r.json()["documents"][0]
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Error fetching setting {setting_name}: {e}")
+    return None
+
+def get_battery_by_id(bid):
+    try:
+        r = requests.get(
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
+            headers=HEADERS
+        )
+        return r.json()
+    except:
+        return None
 
 def rotate_to_position(client, target_position):
     global current_position
@@ -64,40 +94,6 @@ def rotate_to_position(client, target_position):
     log_to_appwrite(f"🔄 Revolver moved {steps} steps to position {current_position}")
 
 
-def get_setting(setting_name):
-    try:
-        r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{SETTINGS_COLLECTION}/documents"
-            f"?queries[]=equal(\"setting_name\",\"{setting_name}\")&queries[]=limit(1)",
-            headers=HEADERS
-        )
-        if r.status_code == 200:
-            return r.json()["documents"][0]
-    except Exception as e:
-        log_to_appwrite(f"⚠️ Error fetching setting {setting_name}: {e}")
-    return None
-
-
-def get_active_cell_id():
-    doc = get_setting("ACTIVE_CELL_ID")
-    return doc.get("setting_data") if doc else None
-
-
-def get_discharge_switch_mode():
-    doc = get_setting("DISCHARGE_SWITCH")
-    return 1 if doc and doc.get("setting_boolean", False) else 2
-
-
-def get_battery_by_id(bid):
-    try:
-        r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
-            headers=HEADERS
-        )
-        return r.json()
-    except:
-        return None
-
 
 def update_battery_status(bid, data):
     try:
@@ -108,6 +104,20 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"⚠️ Battery update failed: {e}")
 
+def measure_from_serial(ser):
+    try:
+        ser.write(b"MEASURE\n")
+        time.sleep(2)
+        line = ser.readline().decode(errors='ignore').strip()
+        if line:
+            data = eval(line)
+            voltage = float(data.get("voltage", 0.0))
+            current = float(data.get("current", 0.0))
+            mode = int(data.get("mode", 1))
+            return voltage, current, mode
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Serial error: {e}")
+    return None, None, None
 
 def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, mode=1):
     try:
@@ -132,21 +142,10 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
     except Exception as e:
         log_to_appwrite(f"❌ Save error: {e}")
 
+def get_discharge_switch_mode():
+    doc = get_setting("DISCHARGE_SWITCH")
+    return 1 if doc and doc.get("setting_boolean", False) else 2
 
-def measure_from_serial(ser):
-    try:
-        ser.write(b"MEASURE\n")
-        time.sleep(2)
-        line = ser.readline().decode(errors='ignore').strip()
-        if line:
-            data = eval(line)
-            voltage = float(data.get("voltage", 0.0))
-            current = float(data.get("current", 0.0))
-            mode = int(data.get("mode", 1))
-            return voltage, current, mode
-    except Exception as e:
-        log_to_appwrite(f"⚠️ Serial error: {e}")
-    return None, None, None
 
 
 def do_loading_step(client, bid):
@@ -156,14 +155,19 @@ def do_loading_step(client, bid):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, False)
     update_battery_status(bid, {"operation": 1})
 
+def do_voltage_measure_step(ser, bid):
+    voltage, _, _ = measure_from_serial(ser)
+    if voltage is not None:
+        update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
+        if voltage < 2.5:
+            update_battery_status(bid, {"status": 9, "operation": 0})
+            log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
 
-def do_output_step(client, bid, good=True):
-    coil = MODBUS_OUTPUT_GOOD_EJECT if good else MODBUS_OUTPUT_BAD_EJECT
-    client.write_coil(coil, True)
-    time.sleep(2)
-    client.write_coil(coil, False)
+def do_charge_step(client, bid, ser):
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
-
 
 def do_discharge_step(client, bid, ser):
     mode = get_discharge_switch_mode()
@@ -181,30 +185,20 @@ def do_discharge_step(client, bid, ser):
 
     update_battery_status(bid, {"operation": 1})
 
-
-def do_charge_step(client, bid, ser):
-    voltage, current, mode = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
-    update_battery_status(bid, {"operation": 1})
-
-
 def do_recharge_step(client, bid, ser):
     voltage, current, mode = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
 
+def do_output_step(client, bid, good=True):
+    coil = MODBUS_OUTPUT_GOOD_EJECT if good else MODBUS_OUTPUT_BAD_EJECT
+    client.write_coil(coil, True)
+    time.sleep(2)
+    client.write_coil(coil, False)
+    update_battery_status(bid, {"operation": 1})
 
-def do_voltage_measure_step(ser, bid):
-    voltage, _, _ = measure_from_serial(ser)
-    if voltage is not None:
-        update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
-        if voltage < 2.5:
-            update_battery_status(bid, {"status": 9, "operation": 0})
-            log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
-
-
+############################################################################################
 def main():
     global current_position
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
@@ -257,7 +251,6 @@ def main():
     finally:
         client.close()
         ser.close()
-
 
 if __name__ == "__main__":
     main()
