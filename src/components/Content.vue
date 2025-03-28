@@ -66,8 +66,7 @@ export default {
     },
     mounted() {
         this.leker();
-        setInterval(() => {this.leker()}, 20000);
-        //setInterval(() => {this.leker()}, 5*60000);
+        setInterval(() => {this.leker()}, 5*60000);
     },
     data () {
         return {
