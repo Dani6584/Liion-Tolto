@@ -15,7 +15,7 @@ from appwrite.services.databases import Databases
 # Hardcoded Appwrite credentials
 BASE_URL = "https://appwrite.tsada.edu.rs/v1"
 PROJECT_ID = "67a5b2fd0036cbf53dbf"
-API_KEY = "standard_58f4f07f94d9b36d8168c64ca493b93eebd51a6fe1fd9d5855d491f2378d404eba5cdd9893033434123850b9426ed0edc51da499e06d986f393b7b9391484ef3db94d013bed0e02467e063f6c93566d96c3daefc93c82b581f108d1afa3f0d782b3772e625ee15c51470ba2bf3e2cad644ee56a645e88c21ec1bf434050febd8"  # 🔐 Replace this with your actual API key
+API_KEY = "standard_58f4f07f94d9b36d8168c64ca493b93eebd51a6fe1fd9d5855d491f2378d404eba5cdd9893033434123850b9426ed0edc51da499e06d986f393b7b9391484ef3db94d013bed0e02467e063f6c93566d96c3daefc93c82b581f108d1afa3f0d782b3772e625ee15c51470ba2bf3e2cad644ee56a645e88c21ec1bf434050febd8"  # 🔐 Hardcoded API key
 
 # Appwrite SDK Setup
 client = Client()
@@ -79,7 +79,7 @@ def get_setting(name):
         res = databases.list_documents(
             database_id=DATABASE_ID,
             collection_id=HARDWARE_FLAGS_COLLECTION,
-            queries=[f'equal("setting_name", "{name}")', "limit(1)"]
+            queries=[f'equal("setting_name", "{name}")']
         )
         docs = res.get("documents", [])
         return docs[0] if docs else None
