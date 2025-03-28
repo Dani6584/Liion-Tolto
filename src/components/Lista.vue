@@ -48,7 +48,7 @@ export default {
                 const responseIDs = await database.listDocuments(ids.database_id, ids.akkumulator_id, [Query.orderDesc("$createdAt")])
                 responseIDs.documents.forEach(element => {
                     console.log(element)
-                    this._docIDs.push({id:element.$id,kod:element.leolvasottkod, kdatum:element.$createdAt, vdatum:element.toltes_vege});
+                    this._docIDs.push({id:element.$id,kod:element.leolvasottkod, kdatum:element.$createdAt, vdatum:element.merites_vege});
                 });
             }
             catch (error) {
