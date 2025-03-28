@@ -132,10 +132,19 @@ def get_setting(setting_name):
             headers=HEADERS
         )
         if r.status_code == 200:
-            return r.json()["documents"][0]
+            result = r.json()
+            log_to_appwrite(f"🔍 Raw response for setting '{setting_name}': {result}")
+            documents = result.get("documents", [])
+            if documents:
+                return documents[0]
+            else:
+                log_to_appwrite("⚠️ No matching document found in Appwrite.")
+        else:
+            log_to_appwrite(f"⚠️ Failed to fetch setting '{setting_name}': Status {r.status_code}")
     except Exception as e:
-        log_to_appwrite(f"⚠️ Error fetching setting {setting_name}: {e}")
+        log_to_appwrite(f"⚠️ Exception in get_setting('{setting_name}'): {e}")
     return None
+
 
 def get_active_cell_id():
     doc = get_setting("ACTIVE_CELL_ID")
