@@ -252,7 +252,34 @@ def main():
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
             # Automatically set next status once operation is confirmed complete
-            # Status transitions are now handled automatically above
+            if status in STATUS_TO_POSITION:
+                rotate_to_position(client, STATUS_TO_POSITION[status])
+
+            # Only steps the hardware should fully automate
+            if status == 1:
+                do_loading_step(client, cell_id)
+                update_battery_status(cell_id, {"operation": 0})
+            elif status == 2:
+                do_voltage_measure_step(ser, cell_id)
+                update_battery_status(cell_id, {"operation": 0})
+
+            # Remaining steps require web interface to decide when to move on
+            elif status == 3:
+                do_charge_step(client, cell_id, ser)
+                update_battery_status(cell_id, {"operation": 1})
+            elif status == 4:
+                do_discharge_step(client, cell_id, ser)
+                update_battery_status(cell_id, {"operation": 1})
+            elif status == 5:
+                do_recharge_step(client, cell_id, ser)
+                update_battery_status(cell_id, {"operation": 1})
+            elif status == 7:
+                do_output_step(client, cell_id, good=True)
+                update_battery_status(cell_id, {"operation": 1})
+            elif status == 9:
+                do_output_step(client, cell_id, good=False)
+                update_battery_status(cell_id, {"operation": 1})
+
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
