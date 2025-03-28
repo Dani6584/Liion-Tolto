@@ -33,10 +33,10 @@ else:
 # 🔄 Auto update
 def auto_update():
     try:
-        subprocess.run(["git", "pull"], cwd=os.path.dirname(__file__), check=True)
+        subprocess.run(["git", "pull"], cwd="/home/pi/liion/Liion-Tolto", check=True)
         subprocess.run(
-            [os.path.join(os.path.dirname(__file__), "venv/bin/pip"), "install", "-r", "requirements.txt"],
-            cwd=os.path.dirname(__file__),
+            ["/home/pi/liion/bin/pip", "install", "-r", "requirements.txt"],
+            cwd="/home/pi/liion/Liion-Tolto",
             check=False
         )
         print("✅ Code and dependencies updated.")
