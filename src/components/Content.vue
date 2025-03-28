@@ -12,25 +12,25 @@
             <div class="col-span-1">
                 <div class = "t" v-if="m_kezdes != undefined">{{ datum(t_kezdes) }}</div>
                 <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-                <div class = "d">Merítési idejének kezdete</div>
+                <div class = "d">Töltés idejének kezdete</div>
             </div>
 
             <div class="col-span-1">
                 <div class = "t" v-if="m_vege != undefined">{{ datum(t_vege) }}</div>
                 <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-                <div class = "d">Merítés idejének vége</div>
+                <div class = "d">Töltés idejének vége</div>
             </div>
 
             <div class="col-span-1">
                 <div class = "t" v-if="t_kezdes != undefined">{{ datum(m_kezdes) }}</div>
                 <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
-                <div class = "d">Töltés idejének kezdete</div>
+                <div class = "d">Merítési idejének kezdete</div>
             </div>
 
             <div class="col-span-1">
                 <div class = "t" v-if="t_vege != undefined">{{ datum(m_vege) }}</div>
                 <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
-                <div class = "d">Töltés idejének vége</div>
+                <div class = "d">Merítés idejének vége</div>
             </div>
 
             <div class="col-span-1">
