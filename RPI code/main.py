@@ -46,7 +46,7 @@ BASE_URL = os.environ.get("APPWRITE_BASE_URL", "https://appwrite.tsada.edu.rs/v1
 HEADERS = {
     "Content-Type": "application/json",
     "X-Appwrite-Project": os.environ.get("APPWRITE_PROJECT_ID", "67a5b2fd0036cbf53dbf"),
-    "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "")
+    "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "standard_58f4f07f94d9b36d8168c64ca493b93eebd51a6fe1fd9d5855d491f2378d404eba5cdd9893033434123850b9426ed0edc51da499e06d986f393b7b9391484ef3db94d013bed0e02467e063f6c93566d96c3daefc93c82b581f108d1afa3f0d782b3772e625ee15c51470ba2bf3e2cad644ee56a645e88c21ec1bf434050febd8")
 }
 
 DATABASE_ID = "67a5b54c00004b1a93d7"
