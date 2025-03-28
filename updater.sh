@@ -1,0 +1,1 @@
+cd /home/pi/liion/Liion-Tolto; git pull;
