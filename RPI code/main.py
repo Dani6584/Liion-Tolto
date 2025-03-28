@@ -272,24 +272,34 @@ def do_output_step(client, bid, good=True):
 # 🚀 Main
 def main():
     global current_position
-    client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
-    ser = open_serial_port()
-    if not ser:
-        log_to_appwrite("❌ Failed to open serial port. Exiting.")
-        return
-
-    if not client.connect():
-        log_to_appwrite("❌ Modbus connection failed")
-        return
+    log_to_appwrite("🚀 MAIN STARTED")
 
     try:
+        log_to_appwrite("🔌 Creating Modbus client...")
+        client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
+
+        log_to_appwrite("🧲 Opening serial port...")
+        ser = open_serial_port()
+        if not ser:
+            log_to_appwrite("❌ Serial port not available. Exiting.")
+            return
+
+        log_to_appwrite("🔗 Connecting to PLC...")
+        if not client.connect():
+            log_to_appwrite("❌ Modbus connection failed. Exiting.")
+            return
+
+        log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
+
         while True:
+            log_to_appwrite("🔍 Checking for active cell...")
             cell_id = get_active_cell_id()
             if not cell_id:
-                log_to_appwrite("🔍 No active cell ID found.")
+                log_to_appwrite("🕵️ No active cell ID found.")
                 time.sleep(3)
                 continue
 
+            log_to_appwrite(f"📦 Found cell ID: {cell_id}")
             bat = get_battery_by_id(cell_id)
             if not bat:
                 log_to_appwrite(f"⚠️ Battery ID '{cell_id}' not found.")
@@ -298,7 +308,10 @@ def main():
 
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
+            log_to_appwrite(f"🔄 Status: {status}, Operation: {operation}")
+
             if operation != 0:
+                log_to_appwrite("⏳ Operation in progress, waiting...")
                 time.sleep(2)
                 continue
 
@@ -325,10 +338,21 @@ def main():
             time.sleep(1)
 
     except KeyboardInterrupt:
-        log_to_appwrite("🛑 Script terminated by user.")
+        log_to_appwrite("🛑 Script terminated by user (KeyboardInterrupt).")
+
+    except Exception as e:
+        log_to_appwrite(f"💥 Unexpected error in main loop: {e}")
+
     finally:
-        client.close()
-        ser.close()
+        log_to_appwrite("🧼 Cleaning up: closing serial and Modbus connections.")
+        try:
+            client.close()
+        except:
+            log_to_appwrite("⚠️ Couldn't close Modbus client.")
+        try:
+            ser.close()
+        except:
+            log_to_appwrite("⚠️ Couldn't close serial port.")
 
 if __name__ == "__main__":
     auto_update()
