@@ -30,18 +30,14 @@ else:
     print("❌ No internet after 5 minutes. Exiting.")
     exit(1)
 
-# 🔄 Auto update
 def auto_update():
+    repo_dir = "/home/pi/liion/Liion-Tolto"
     try:
-        subprocess.run(["git", "pull"], cwd="/home/pi/liion/Liion-Tolto", check=True)
-        subprocess.run(
-            ["/home/pi/liion/bin/pip", "install", "-r", "requirements.txt"],
-            cwd="/home/pi/liion/Liion-Tolto",
-            check=False
-        )
-        print("✅ Code and dependencies updated.")
+        subprocess.run(["git", "pull"], cwd=repo_dir, check=True)
+        print("✅ Code updated from Git.")
     except subprocess.CalledProcessError as e:
         print(f"⚠️ Auto-update failed: {e}")
+
 
 auto_update()
 
