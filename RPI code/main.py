@@ -9,6 +9,10 @@ import serial
 from datetime import datetime
 from dotenv import load_dotenv
 from pymodbus.client import ModbusTcpClient
+from appwrite.client import Client
+from appwrite.services.databases import Databases
+
+
 
 # 🌱 Load .env
 load_dotenv()
@@ -46,8 +50,10 @@ BASE_URL = os.environ.get("APPWRITE_BASE_URL", "https://appwrite.tsada.edu.rs/v1
 HEADERS = {
     "Content-Type": "application/json",
     "X-Appwrite-Project": os.environ.get("APPWRITE_PROJECT_ID", "67a5b2fd0036cbf53dbf"),
-    "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "standard_58f4f07f94d9b36d8168c64ca493b93eebd51a6fe1fd9d5855d491f2378d404eba5cdd9893033434123850b9426ed0edc51da499e06d986f393b7b9391484ef3db94d013bed0e02467e063f6c93566d96c3daefc93c82b581f108d1afa3f0d782b3772e625ee15c51470ba2bf3e2cad644ee56a645e88c21ec1bf434050febd8")
+    "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "")
 }
+
+
 
 DATABASE_ID = "67a5b54c00004b1a93d7"
 RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
@@ -55,6 +61,14 @@ HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
 BATTERY_COLLECTION = "67a5b55b002eceac9c33"
+
+client = Client()
+client.set_endpoint(BASE_URL)
+client.set_project("67a5b2fd0036cbf53dbf")
+client.set_key("standard_58f4f07f94d9b36d8168c64ca493b93eebd51a6fe1fd9d5855d491f2378d404eba5cdd9893033434123850b9426ed0edc51da499e06d986f393b7b9391484ef3db94d013bed0e02467e063f6c93566d96c3daefc93c82b581f108d1afa3f0d782b3772e625ee15c51470ba2bf3e2cad644ee56a645e88c21ec1bf434050febd8")
+
+databases = Databases(client)
+
 
 # ⚙️ Serial + PLC
 BAUD_RATE = int(os.environ.get("BAUD_RATE", "9600"))
@@ -126,33 +140,32 @@ def log_to_appwrite(message):
 
 def get_setting(setting_name):
     try:
-        r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{HARDWARE_FLAGS_COLLECTION}/documents",
-            headers=HEADERS,
-            params={
-                "queries[]": [
-                    f'equal("setting_name","{setting_name}")',
-                    "limit(1)"
-                ]
-            }
+        result = databases.list_documents(
+            database_id=DATABASE_ID,
+            collection_id=HARDWARE_FLAGS_COLLECTION,
+            queries=[
+                f'equal("setting_name", "{setting_name}")',
+                'limit(1)'
+            ]
         )
-        if r.status_code == 200:
-            result = r.json()
-            log_to_appwrite(f"🔍 Raw response for setting '{setting_name}': {result}")
-            documents = result.get("documents", [])
-            if documents:
-                return documents[0]
-            else:
-                log_to_appwrite("⚠️ No matching document found in Appwrite.")
+        docs = result.get("documents", [])
+        if docs:
+            return docs[0]
         else:
-            log_to_appwrite(f"⚠️ Failed to fetch setting '{setting_name}': Status {r.status_code}")
+            log_to_appwrite(f"⚠️ Setting '{setting_name}' not found in database.")
     except Exception as e:
-        log_to_appwrite(f"⚠️ Exception in get_setting('{setting_name}'): {e}")
+        log_to_appwrite(f"❌ SDK error in get_setting('{setting_name}'): {e}")
     return None
 
 def get_active_cell_id():
     doc = get_setting("ACTIVE_CELL_ID")
-    return doc.get("setting_data") if doc else None
+    if doc:
+        cell_id = doc.get("setting_data")
+        log_to_appwrite(f"✅ Found ACTIVE_CELL_ID via SDK: {cell_id}")
+        return cell_id
+    else:
+        log_to_appwrite("❌ ACTIVE_CELL_ID not found.")
+        return None
 
 def get_discharge_switch_mode():
     doc = get_setting("DISCHARGE_SWITCH")
@@ -160,26 +173,26 @@ def get_discharge_switch_mode():
 
 def get_battery_by_id(bid):
     try:
-        r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
-            headers=HEADERS
+        return databases.get_document(
+            database_id=DATABASE_ID,
+            collection_id=BATTERY_COLLECTION,
+            document_id=bid
         )
-        if r.status_code == 200:
-            return r.json()
-        else:
-            log_to_appwrite(f"⚠️ Battery fetch failed: {r.status_code} for {bid}")
     except Exception as e:
-        log_to_appwrite(f"⚠️ Battery fetch exception: {e}")
-    return None
+        log_to_appwrite(f"⚠️ SDK error in get_battery_by_id('{bid}'): {e}")
+        return None
 
 def update_battery_status(bid, data):
     try:
-        requests.patch(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
-            headers=HEADERS, json={"data": data}
+        databases.update_document(
+            database_id=DATABASE_ID,
+            collection_id=BATTERY_COLLECTION,
+            document_id=bid,
+            data=data
         )
     except Exception as e:
-        log_to_appwrite(f"⚠️ Battery update failed: {e}")
+        log_to_appwrite(f"⚠️ SDK error in update_battery_status('{bid}'): {e}")
+
 
 def rotate_to_position(client, target_position):
     global current_position
@@ -224,14 +237,17 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
             elif collection_id == DISCHARGE_COLLECTION:
                 payload["dischargecurrent"] = current
 
-        r = requests.post(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{collection_id}/documents",
-            headers=HEADERS, json={"data": payload}
+        databases.create_document(
+            database_id=DATABASE_ID,
+            collection_id=collection_id,
+            document_id="unique()",
+            data=payload
         )
-        if r.status_code == 201:
-            log_to_appwrite(f"📤 Measurement saved: {voltage:.2f}V {'(open)' if open_circuit else '(load)'}")
+        log_to_appwrite(f"📤 Measurement saved (SDK): {voltage:.2f}V {'(open)' if open_circuit else '(load)'}")
     except Exception as e:
-        log_to_appwrite(f"❌ Save error: {e}")
+        log_to_appwrite(f"❌ SDK error saving measurement: {e}")
+
+
 
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
