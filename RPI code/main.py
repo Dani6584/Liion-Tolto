@@ -246,26 +246,13 @@ def main():
                 continue
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
-            if operation != 0:
+            if operation == 0:
                 time.sleep(2)
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
-            if status in STATUS_TO_POSITION:
-                rotate_to_position(client, STATUS_TO_POSITION[status])
-            if status == 1:
-                do_loading_step(client, cell_id)
-            elif status == 2:
-                do_voltage_measure_step(ser, cell_id)
-            elif status == 3:
-                do_charge_step(client, cell_id, ser)
-            elif status == 4:
-                do_discharge_step(client, cell_id, ser)
-            elif status == 5:
-                do_recharge_step(client, cell_id, ser)
-            elif status == 7:
-                do_output_step(client, cell_id, good=True)
-            elif status == 9:
-                do_output_step(client, cell_id, good=False)
+
+            # Automatically set next status once operation is confirmed complete
+            # Status transitions are now handled automatically above
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
