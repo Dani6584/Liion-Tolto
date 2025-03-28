@@ -6,6 +6,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from pymodbus.client import ModbusTcpClient
 
+# 🌱 Load environment variables
 load_dotenv()
 BASE_URL = os.environ.get("APPWRITE_BASE_URL", "https://appwrite.tsada.edu.rs/v1")
 HEADERS = {
@@ -14,6 +15,7 @@ HEADERS = {
     "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "")
 }
 
+# 📦 Appwrite Collections
 DATABASE_ID = "67a5b54c00004b1a93d7"
 RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
 Hardware_Flags_COLLECTION = "67de7e600036fcfc5959"
@@ -21,12 +23,13 @@ CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
 BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 
+# ⚙️ PLC & Serial
 PLC_IP = os.environ.get("PLC_IP", "192.168.1.5")
 PLC_PORT = int(os.environ.get("PLC_PORT", "502"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
 BAUD_RATE = int(os.environ.get("BAUD_RATE", "9600"))
 
-# Modbus outputs
+# 🔌 Modbus outputs
 MODBUS_OUTPUT_PWM_ENABLE = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -34,17 +37,11 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 
-STATUS_TO_POSITION = {
-    1: 0,
-    2: 1,
-    3: 2,
-    4: 3,
-    5: 4,
-    7: 5,
-    9: 5
-}
+# 🔁 Status to revolver position
+STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 current_position = 0
 
+# 📝 Log helper
 def log_to_appwrite(message):
     try:
         requests.post(
@@ -55,10 +52,7 @@ def log_to_appwrite(message):
     except Exception as e:
         print(f"Logging failed: {e}")
 
-def get_active_cell_id():
-    doc = get_setting("ACTIVE_CELL_ID")
-    return doc.get("setting_data") if doc else None
-
+# 🔧 Settings
 def get_setting(setting_name):
     try:
         r = requests.get(
@@ -72,6 +66,15 @@ def get_setting(setting_name):
         log_to_appwrite(f"⚠️ Error fetching setting {setting_name}: {e}")
     return None
 
+def get_active_cell_id():
+    doc = get_setting("ACTIVE_CELL_ID")
+    return doc.get("setting_data") if doc else None
+
+def get_discharge_switch_mode():
+    doc = get_setting("DISCHARGE_SWITCH")
+    return 1 if doc and doc.get("setting_boolean", False) else 2
+
+# 🔋 Akkumulátor adatlekérés
 def get_battery_by_id(bid):
     try:
         r = requests.get(
@@ -82,6 +85,16 @@ def get_battery_by_id(bid):
     except:
         return None
 
+def update_battery_status(bid, data):
+    try:
+        requests.patch(
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
+            headers=HEADERS, json={"data": data}
+        )
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Battery update failed: {e}")
+
+# 🔁 Revolver forgatása
 def rotate_to_position(client, target_position):
     global current_position
     steps = (target_position - current_position) % 6
@@ -93,17 +106,7 @@ def rotate_to_position(client, target_position):
     current_position = target_position
     log_to_appwrite(f"🔄 Revolver moved {steps} steps to position {current_position}")
 
-
-
-def update_battery_status(bid, data):
-    try:
-        requests.patch(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{BATTERY_COLLECTION}/documents/{bid}",
-            headers=HEADERS, json={"data": data}
-        )
-    except Exception as e:
-        log_to_appwrite(f"⚠️ Battery update failed: {e}")
-
+# 📟 Mérési adat soros portról
 def measure_from_serial(ser):
     try:
         ser.write(b"MEASURE\n")
@@ -119,6 +122,7 @@ def measure_from_serial(ser):
         log_to_appwrite(f"⚠️ Serial error: {e}")
     return None, None, None
 
+# 🧪 Mentés Appwrite-ba
 def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, mode=1):
     try:
         payload = {
@@ -142,12 +146,7 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
     except Exception as e:
         log_to_appwrite(f"❌ Save error: {e}")
 
-def get_discharge_switch_mode():
-    doc = get_setting("DISCHARGE_SWITCH")
-    return 1 if doc and doc.get("setting_boolean", False) else 2
-
-
-
+# ⚙️ Egyes lépések
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
@@ -171,7 +170,6 @@ def do_charge_step(client, bid, ser):
 
 def do_discharge_step(client, bid, ser):
     mode = get_discharge_switch_mode()
-
     voltage_oc, _, _ = measure_from_serial(ser)
     if voltage_oc:
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage_oc, None, True, mode)
@@ -182,7 +180,6 @@ def do_discharge_step(client, bid, ser):
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
-
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
@@ -198,7 +195,7 @@ def do_output_step(client, bid, good=True):
     client.write_coil(coil, False)
     update_battery_status(bid, {"operation": 1})
 
-############################################################################################
+# 🚀 Main loop
 def main():
     global current_position
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
@@ -212,19 +209,24 @@ def main():
         while True:
             cell_id = get_active_cell_id()
             if not cell_id:
+                log_to_appwrite("🔍 No active cell ID found.")
                 time.sleep(3)
                 continue
 
             bat = get_battery_by_id(cell_id)
             if not bat:
+                log_to_appwrite(f"⚠️ Battery ID '{cell_id}' not found.")
                 time.sleep(3)
                 continue
 
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
             if operation != 0:
+                log_to_appwrite(f"⏳ Battery {cell_id} is still processing. Skipping.")
                 time.sleep(2)
                 continue
+
+            log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
             if status in STATUS_TO_POSITION:
                 rotate_to_position(client, STATUS_TO_POSITION[status])
@@ -247,7 +249,7 @@ def main():
             time.sleep(1)
 
     except KeyboardInterrupt:
-        log_to_appwrite("🛑 Script terminated")
+        log_to_appwrite("🛑 Script terminated by user.")
     finally:
         client.close()
         ser.close()
