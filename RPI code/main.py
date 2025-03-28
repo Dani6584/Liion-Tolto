@@ -127,9 +127,14 @@ def log_to_appwrite(message):
 def get_setting(setting_name):
     try:
         r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{HARDWARE_FLAGS_COLLECTION}/documents"
-            f"?queries[]=equal(\"setting_name\",\"{setting_name}\")&queries[]=limit(1)",
-            headers=HEADERS
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{HARDWARE_FLAGS_COLLECTION}/documents",
+            headers=HEADERS,
+            params={
+                "queries[]": [
+                    f'equal("setting_name","{setting_name}")',
+                    "limit(1)"
+                ]
+            }
         )
         if r.status_code == 200:
             result = r.json()
@@ -144,7 +149,6 @@ def get_setting(setting_name):
     except Exception as e:
         log_to_appwrite(f"⚠️ Exception in get_setting('{setting_name}'): {e}")
     return None
-
 
 def get_active_cell_id():
     doc = get_setting("ACTIVE_CELL_ID")
