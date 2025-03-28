@@ -317,4 +317,5 @@ def main():
         ser.close()
 
 if __name__ == "__main__":
+    auto_update()
     main()
