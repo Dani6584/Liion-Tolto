@@ -101,14 +101,28 @@ def open_serial_port():
 
 # 📝 Appwrite logging
 def log_to_appwrite(message):
+    timestamp = datetime.now().isoformat()
+    formatted = f"{timestamp} – {message}"
+    
+    # 1️⃣ Terminálba (systemd logban is látszik)
+    print(formatted)
+
+    # 2️⃣ Lokális fájlba
+    try:
+        with open("/tmp/battery_sync.log", "a") as f:
+            f.write(formatted + "\n")
+    except Exception as e:
+        print(f"⚠️ Failed to write local log: {e}")
+
+    # 3️⃣ Appwrite-ba (ha megy a net)
     try:
         requests.post(
             f"{BASE_URL}/databases/{DATABASE_ID}/collections/{RPI_LOGGING_COLLECTION}/documents",
             headers=HEADERS,
-            json={"data": {"MESSAGE": f"{datetime.now().isoformat()} – {message}"}}
+            json={"data": {"MESSAGE": formatted}}
         )
     except Exception as e:
-        print(f"Logging failed: {e}")
+        print(f"⚠️ Appwrite logging failed: {e}")
 
 def get_setting(setting_name):
     try:
