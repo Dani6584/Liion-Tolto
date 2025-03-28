@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Line style="align-items: center" height="300px" v-if="loaded" :data="data" :options="options"/>
+    <Line style="align-items: center" height="300px" :data="data" :options="options"/>
   </div>
 </template>
 
@@ -29,52 +29,35 @@ ChartJS.register(
 )
 
 export default {
-  name: "Graph",
+  name: "Toltes",
   components: {
     Line
   },
-  mounted() {
-    const b=useFetchDataStore()
-    console.log(b.idok2)
-
-    this.data.labels=b.idok2
-    this.data.datasets[0].data=b.fesz2
-    this.data.datasets[1].data=b.tcurrent
-
-    this.loaded=true
-  },
-
-  data() {
-    return {
-      idok2:[],
-      fesz2:[],
-      tcurrent:[],
-      
-      loaded:false,
-      data:{
-        labels: [],
-        datasets: [
-        {
-          label: 'Feszültség',
-          borderColor: '#46e62d',
-          backgroundColor: '#1e820f',
-          pointRadius: 5,
-          fill: false,
-          data: []
-        },
-        {
-          label: 'Áram',
-          borderColor: '#f56e6e',
-          backgroundColor: '#c74c4c',
-          pointRadius: 5,
-          fill: false,
-          data: []
-        }
-        ]
-      }
-    }
-  },
   computed: {
+    data() {
+      const store = useFetchDataStore();
+      return {
+        labels: store.idok2,
+        datasets: [
+          {
+            label: 'Feszültség',
+            borderColor: '#46e62d',
+            backgroundColor: '#1e820f',
+            pointRadius: 5,
+            fill: false,
+            data: store.fesz2
+          },
+          {
+            label: 'Áram',
+            borderColor: '#f56e6e',
+            backgroundColor: '#c74c4c',
+            pointRadius: 5,
+            fill: false,
+            data: store.tcurrent
+          }
+        ]
+      };
+    },
     options() {
       return {
         responsive: true,
