@@ -1,14 +1,51 @@
 import os
 import time
 import json
+import socket
+import glob
+import subprocess
 import requests
 import serial
 from datetime import datetime
 from dotenv import load_dotenv
 from pymodbus.client import ModbusTcpClient
 
-# 🌱 Load environment variables
+# 🌱 Load .env
 load_dotenv()
+
+# 🔁 Internet check
+def is_connected():
+    try:
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        return True
+    except:
+        return False
+
+for _ in range(60):
+    if is_connected():
+        break
+    print("🌐 Waiting for internet...")
+    time.sleep(5)
+else:
+    print("❌ No internet after 5 minutes. Exiting.")
+    exit(1)
+
+# 🔄 Auto update
+def auto_update():
+    try:
+        subprocess.run(["git", "pull"], cwd=os.path.dirname(__file__), check=True)
+        subprocess.run(
+            [os.path.join(os.path.dirname(__file__), "venv/bin/pip"), "install", "-r", "requirements.txt"],
+            cwd=os.path.dirname(__file__),
+            check=False
+        )
+        print("✅ Code and dependencies updated.")
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️ Auto-update failed: {e}")
+
+auto_update()
+
+# 🌍 Appwrite config
 BASE_URL = os.environ.get("APPWRITE_BASE_URL", "https://appwrite.tsada.edu.rs/v1")
 HEADERS = {
     "Content-Type": "application/json",
@@ -16,21 +53,20 @@ HEADERS = {
     "X-Appwrite-Key": os.environ.get("APPWRITE_API_KEY", "")
 }
 
-# 📦 Appwrite Collections
 DATABASE_ID = "67a5b54c00004b1a93d7"
-BATTERY_COLLECTION = "67a5b55b002eceac9c33"
-SETTINGS_COLLECTION = "67de7e600036fcfc5959"
+RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
+HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
 BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 
-# ⚙️ PLC & Serial
+# ⚙️ Serial + PLC
+BAUD_RATE = int(os.environ.get("BAUD_RATE", "9600"))
 PLC_IP = os.environ.get("PLC_IP", "192.168.1.5")
 PLC_PORT = int(os.environ.get("PLC_PORT", "502"))
-SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
-BAUD_RATE = int(os.environ.get("BAUD_RATE", "9600"))
+ROTATE_ON_TIME = float(os.environ.get("ROTATE_ON_TIME", 1))
+ROTATE_OFF_TIME = float(os.environ.get("ROTATE_OFF_TIME", 2))
 
-# Modbus outputs
 MODBUS_OUTPUT_PWM_ENABLE = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -38,11 +74,36 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 
-# 🔁 Status to revolver position
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 current_position = 0
 
-# 📝 Log helper
+# 🔌 Serial auto-detect
+SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
+
+def find_serial_port():
+    ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
+    return ports[0] if ports else None
+
+def open_serial_port():
+    global SERIAL_PORT
+    try:
+        return serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
+    except FileNotFoundError:
+        print(f"⚠️ Serial port {SERIAL_PORT} not found, trying auto-detect...")
+        SERIAL_PORT = find_serial_port()
+        if SERIAL_PORT:
+            print(f"✅ Found serial port: {SERIAL_PORT}")
+            try:
+                return serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
+            except Exception as e:
+                print(f"❌ Failed to open auto-detected port: {e}")
+        else:
+            print("❌ No serial ports found.")
+    except Exception as e:
+        print(f"❌ Serial port open error: {e}")
+    return None
+
+# 📝 Appwrite logging
 def log_to_appwrite(message):
     try:
         requests.post(
@@ -53,11 +114,10 @@ def log_to_appwrite(message):
     except Exception as e:
         print(f"Logging failed: {e}")
 
-# 🔧 Settings
 def get_setting(setting_name):
     try:
         r = requests.get(
-            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{SETTINGS_COLLECTION}/documents"
+            f"{BASE_URL}/databases/{DATABASE_ID}/collections/{HARDWARE_FLAGS_COLLECTION}/documents"
             f"?queries[]=equal(\"setting_name\",\"{setting_name}\")&queries[]=limit(1)",
             headers=HEADERS
         )
@@ -75,7 +135,6 @@ def get_discharge_switch_mode():
     doc = get_setting("DISCHARGE_SWITCH")
     return 1 if doc and doc.get("setting_boolean", False) else 2
 
-# 🔋 Akkumulátor adatlekérés
 def get_battery_by_id(bid):
     try:
         r = requests.get(
@@ -99,6 +158,34 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"⚠️ Battery update failed: {e}")
 
+def rotate_to_position(client, target_position):
+    global current_position
+    steps = (target_position - current_position) % 6
+    for _ in range(steps):
+        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 1)
+        time.sleep(ROTATE_ON_TIME)
+        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
+        time.sleep(ROTATE_OFF_TIME)
+    current_position = target_position
+    log_to_appwrite(f"🔄 Revolver moved {steps} steps to position {current_position}")
+
+def measure_from_serial(ser):
+    try:
+        ser.write(b"MEASURE\n")
+        time.sleep(2)
+        line = ser.readline().decode(errors='ignore').strip()
+        if line:
+            try:
+                data = json.loads(line)
+                voltage = float(data.get("voltage", 0.0))
+                current = float(data.get("current", 0.0))
+                mode = int(data.get("mode", 1))
+                return voltage, current, mode
+            except json.JSONDecodeError:
+                log_to_appwrite(f"⚠️ JSON decode error from serial: {line}")
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Serial error: {e}")
+    return None, None, None
 
 def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, mode=1):
     try:
@@ -123,7 +210,6 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
     except Exception as e:
         log_to_appwrite(f"❌ Save error: {e}")
 
-# ⚙️ Egyes lépések
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 1)
@@ -131,6 +217,14 @@ def do_loading_step(client, bid):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     update_battery_status(bid, {"operation": 1})
 
+def do_voltage_measure_step(ser, bid):
+    voltage, _, _ = measure_from_serial(ser)
+    if voltage is not None:
+        if voltage < 2.5:
+            update_battery_status(bid, {"feszultseg": voltage, "status": 9, "operation": 0})
+            log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
+        else:
+            update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
 
 def do_charge_step(client, bid, ser):
     voltage, current, mode = measure_from_serial(ser)
@@ -158,22 +252,20 @@ def do_recharge_step(client, bid, ser):
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
 
-
-def do_recharge_step(client, bid, ser):
-    voltage, current, mode = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+def do_output_step(client, bid, good=True):
+    coil = MODBUS_OUTPUT_GOOD_EJECT if good else MODBUS_OUTPUT_BAD_EJECT
+    client.write_coil(coil, 1)
+    time.sleep(2)
+    client.write_coil(coil, 0)
     update_battery_status(bid, {"operation": 1})
 
-# 🚀 Main loop
+# 🚀 Main
 def main():
     global current_position
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
-
-    try:
-        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
-    except Exception as e:
-        log_to_appwrite(f"❌ Serial port open failed: {e}")
+    ser = open_serial_port()
+    if not ser:
+        log_to_appwrite("❌ Failed to open serial port. Exiting.")
         return
 
     if not client.connect():
@@ -197,7 +289,6 @@ def main():
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
             if operation != 0:
-                log_to_appwrite(f"⏳ Battery {cell_id} is still processing. Skipping.")
                 time.sleep(2)
                 continue
 
