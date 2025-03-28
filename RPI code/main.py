@@ -11,6 +11,7 @@ import serial
 from pymodbus.client import ModbusTcpClient
 from appwrite.client import Client
 from appwrite.services.databases import Databases
+from appwrite.query import Query
 
 # Hardcoded Appwrite credentials
 BASE_URL = "https://appwrite.tsada.edu.rs/v1"
@@ -76,15 +77,16 @@ def log_to_appwrite(message):
 
 def get_setting(name):
     try:
+        from appwrite.query import Query
         res = databases.list_documents(
             database_id=DATABASE_ID,
             collection_id=HARDWARE_FLAGS_COLLECTION,
-            queries=[f'equal("setting_name", "{name}")']
+            queries=[Query.equal("setting_name", [name])]
         )
         docs = res.get("documents", [])
         return docs[0] if docs else None
     except Exception as e:
-        log_to_appwrite(f"SDK error get_setting: {e}")
+        log_to_appwrite(f"SDK error get_setting({name}): {e}")
         return None
 
 def get_active_cell_id():
