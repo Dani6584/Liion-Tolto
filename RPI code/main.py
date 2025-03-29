@@ -247,7 +247,7 @@ def main():
                 continue
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
-            if operation == 0:
+            if operation == 1:
                 time.sleep(2)
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
