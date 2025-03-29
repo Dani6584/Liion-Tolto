@@ -240,6 +240,7 @@ def main():
                 time.sleep(3)
                 continue
             bat = get_battery_by_id(cell_id)
+            log_to_appwrite(f"📦 Battery doc: {bat}")
             if not bat:
                 log_to_appwrite(f"⚠️ Battery ID '{cell_id}' not found.")
                 time.sleep(3)
