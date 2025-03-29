@@ -77,13 +77,13 @@ def log_to_appwrite(message):
 
 def get_setting(name):
     try:
-        from appwrite.query import Query
         res = databases.list_documents(
             database_id=DATABASE_ID,
             collection_id=HARDWARE_FLAGS_COLLECTION,
             queries=[Query.equal("setting_name", [name])]
         )
         docs = res.get("documents", [])
+        log_to_appwrite(f"🔍 get_setting({name}) returned: {docs}")
         return docs[0] if docs else None
     except Exception as e:
         log_to_appwrite(f"SDK error get_setting({name}): {e}")
