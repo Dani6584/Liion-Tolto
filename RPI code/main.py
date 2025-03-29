@@ -259,10 +259,12 @@ def main():
             # Only steps the hardware should fully automate
             if status == 1:
                 do_loading_step(client, cell_id)
-                update_battery_status(cell_id, {"operation": 0})
+                rotate_to_position(client, STATUS_TO_POSITION[2])  # move to measurement position
+                update_battery_status(cell_id, {"status": 2, "operation": 0})
             elif status == 2:
                 do_voltage_measure_step(ser, cell_id)
-                update_battery_status(cell_id, {"operation": 0})
+                log_to_appwrite("➡️ Switching to charging phase (status = 3)")
+                update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
 
             # Remaining steps require web interface to decide when to move on
             elif status == 3:
