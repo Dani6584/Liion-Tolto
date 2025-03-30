@@ -219,7 +219,7 @@ def do_loading_step(client, bid):
     update_battery_status(bid, {"operation": 1})
 
 def do_voltage_measure_step(ser, bid):
-    voltage, _, _ = measure_from_serial(ser)
+    voltage, *_ = measure_from_serial(ser)
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
         if voltage < 2.5:
