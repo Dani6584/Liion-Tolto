@@ -489,10 +489,36 @@ def main():
                 })
             elif status == 7:
                 do_output_step(client, cell_id, good=True)
-                update_battery_status(cell_id, {"status": 10, "operation": 0, "allapot_uzenet": "Jó cella kiadva"})
+                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
+                # Remove ACTIVE_CELL_ID
+                try:
+                    doc = get_setting("ACTIVE_CELL_ID")
+                    if doc:
+                        databases.update_document(
+                            database_id=DATABASE_ID,
+                            collection_id=HARDWARE_FLAGS_COLLECTION,
+                            document_id=doc["$id"],
+                            data={"setting_data": None}
+                        )
+                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
+                except Exception as e:
+                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
             elif status == 9:
                 do_output_step(client, cell_id, good=False)
-                update_battery_status(cell_id, {"status": 10, "operation": 0, "allapot_uzenet": "Rossz cella kiadva"})
+                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
+                # Remove ACTIVE_CELL_ID
+                try:
+                    doc = get_setting("ACTIVE_CELL_ID")
+                    if doc:
+                        databases.update_document(
+                            database_id=DATABASE_ID,
+                            collection_id=HARDWARE_FLAGS_COLLECTION,
+                            document_id=doc["$id"],
+                            data={"setting_data": None}
+                        )
+                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
+                except Exception as e:
+                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
 
             time.sleep(1)
     except KeyboardInterrupt:
