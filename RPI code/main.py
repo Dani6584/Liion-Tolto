@@ -128,13 +128,13 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"update_battery_status error: {e}")
 
-def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, mode=1):
+
+def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False):
     try:
         payload = {
             "battery": battery_id,
             "voltage": voltage,
-            "open_circuit": open_circuit,
-            "mode": mode
+            "open_circuit": open_circuit
         }
         if current:
             if collection_id == CHARGE_COLLECTION:
@@ -165,19 +165,17 @@ def open_serial_port():
 
 def measure_from_serial(ser):
     try:
-        lines = []
         timeout_val = time.time() + 5
         while time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
             if not line:
                 continue
             log_to_appwrite(f"🔎 Serial line: {line}")
-            lines.append(line)
             try:
                 data = json.loads(line)
                 voltage = float(data.get("chargerA_voltage", 0.0))
-                current = float(data.get("charge", 0.0)) / 1000.0  # Convert mA to A for storage
-                mode = 1  # fallback mode
+                current = float(data.get("charge", 0.0)) / 1000.0  # Convert mA -> A
+                mode = 1  # fallback mode if you want to keep 'mode'
                 discharge_current = float(data.get("discharge", 0.0)) / 1000.0
                 discharge_voltage = float(data.get("discharge_voltage", 0.0))
                 charger_b_voltage = float(data.get("chargerB_voltage", 0.0))
@@ -188,7 +186,7 @@ def measure_from_serial(ser):
 
                 return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
             except Exception:
-                continue
+                pass
         raise ValueError("No valid structured measurement found in serial input")
     except Exception as e:
         log_to_appwrite(f"measure_from_serial error: {e}")
@@ -273,16 +271,16 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
 
 def do_charge_step(client, bid, ser):
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
     time.sleep(1)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
 
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
     try:
         ocv_entry = databases.list_documents(
@@ -301,18 +299,37 @@ def do_charge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
-    mode = get_discharge_switch_mode()
+    """
+    Discharge step:
+    - First measure OCV with open_circuit=True
+    - Then turn on discharge coil
+    - Then measure under load with open_circuit=False
+    - We do NOT use 'mode' here, only for charge step.
+    """
+    discharge_mode = get_discharge_switch_mode()
 
     voltage_oc, *_ = measure_from_serial(ser)
     if voltage_oc:
-        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage_oc, None, True, mode)
+        save_measurement_to_appwrite(
+            DISCHARGE_COLLECTION,
+            battery_id=bid,
+            voltage=voltage_oc,
+            current=None,
+            open_circuit=True
+        )
 
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, True)
     time.sleep(2)
 
-    voltage, current, _ = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
+    voltage_load, current_load, *_ = measure_from_serial(ser)
+    if voltage_load:
+        save_measurement_to_appwrite(
+            DISCHARGE_COLLECTION,
+            battery_id=bid,
+            voltage=voltage_load,
+            current=current_load,
+            open_circuit=False
+        )
 
     try:
         logs = databases.list_documents(
@@ -333,9 +350,9 @@ def do_discharge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
     update_battery_status(bid, {"operation": 1})
 
