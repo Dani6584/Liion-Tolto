@@ -298,6 +298,10 @@ def rotate_ocr_motor(client):
     else:
         log_to_appwrite("❌ No cell detected after max OCR rotation attempts")
 
+def get_force_progress():
+    flag = get_setting("FORCE_PROGRESS")
+    return flag and flag.get("setting_boolean")
+
 def main():
     global current_position
     log_to_appwrite("🚀 MAIN STARTED")
@@ -327,7 +331,9 @@ def main():
                 continue
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
-            if operation == 1:
+            force_progress = get_force_progress()
+            log_to_appwrite(f"📊 Status: {status}, Operation: {operation}, FORCE_PROGRESS: {force_progress}")
+            if operation == 1 and not force_progress:
                 time.sleep(2)
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
