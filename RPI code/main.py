@@ -38,7 +38,7 @@ BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
 # The sensor coil address used for reading the endstop sensor (LOGO! V2.0). Adjust as needed.
-SENSOR_COIL_ADDRESS = 6  # <--- ADJUST IF NEEDED (the user previously used coil #6 for OCR motor)
+SENSOR_COIL_ADDRESS = 6  # <--- ADJUST IF NEEDED
 
 # The original code used these constants for outputs:
 MODBUS_OUTPUT_PWM_ENABLE = 0
@@ -140,9 +140,9 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
             "mode": mode
         }
         if current:
-            if collection_id == CHARGE_COLLECTION:
+            if collection_id == "67d18e17000dc1b54f39":  # CHARGE_COLLECTION
                 payload["chargecurrent"] = current
-            elif collection_id == DISCHARGE_COLLECTION:
+            elif collection_id == "67ac8901003b19f4ca35":  # DISCHARGE_COLLECTION
                 payload["dischargecurrent"] = current
 
         databases.create_document(DATABASE_ID, collection_id, "unique()", data=payload)
@@ -215,7 +215,7 @@ def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10)
 
     # Wait for sensor to go LOW first
     while True:
-        result = client.read_coils(address, 1)
+        result = client.read_coils(address=address, count=1)
         if result and len(result.bits) > 0:
             if not result.bits[0]:
                 break
@@ -226,7 +226,7 @@ def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10)
 
     # Then wait for sensor to go HIGH
     while True:
-        result = client.read_coils(address, 1)
+        result = client.read_coils(address=address, count=1)
         if result and len(result.bits) > 0:
             if result.bits[0]:
                 break
@@ -291,7 +291,7 @@ def do_voltage_measure_step(ser, bid):
 def do_charge_step(client, bid, ser):
     voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite("67d18e17000dc1b54f39", bid, voltage, current, False, mode)
     # Toggle charging relay
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
     time.sleep(1)
@@ -299,7 +299,7 @@ def do_charge_step(client, bid, ser):
 
     voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite("67d18e17000dc1b54f39", bid, voltage, current, False, mode)
 
     # Estimate internal resistance if open-circuit voltage is known
     try:
@@ -332,8 +332,7 @@ def do_discharge_step(client, bid, ser):
 
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
-        # NB: the original code tried to do `/ 1000.0` but you already do that in measure_from_serial
-        # so let's not double-convert
+        # NB: the original code tried to do `/ 1000.0` but measure_from_serial already does that
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
 
     # Estimate internal resistance now that we have both OCV and loaded voltage
