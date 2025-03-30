@@ -205,6 +205,7 @@ def rotate_to_position(client, target):
     steps = (target - current_position + 6) % 6  # Ensure positive result
     for _ in range(steps):
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 1)
+    log_to_appwrite(f"⚙️ write_coil({MODBUS_OUTPUT_PWM_ENABLE}, {1}) issued")
         time.sleep(ROTATE_ON_TIME)
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
         time.sleep(ROTATE_OFF_TIME)
