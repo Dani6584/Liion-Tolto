@@ -322,6 +322,32 @@ def rotate_ocr_motor(client):
             break
     else:
         log_to_appwrite("❌ No cell detected after max OCR rotation attempts")
+        # Create UNKNOWN CELL entry
+        try:
+            doc = databases.create_document(
+                database_id=DATABASE_ID,
+                collection_id=BATTERY_COLLECTION,
+                document_id="unique()",
+                data={
+                    "status": 1,
+                    "operation": 0,
+                    "leolvasottkod": "Ismeretlen cella",
+                    "nyerskod": "---",
+                    "allapot": "Folyamatban",
+                    "ideal_capacity": "0",
+                    "ideal_voltage": ""
+                }
+            )
+            # Set this new ID as ACTIVE_CELL_ID
+            databases.update_document(
+                database_id=DATABASE_ID,
+                collection_id=HARDWARE_FLAGS_COLLECTION,
+                document_id=get_setting("ACTIVE_CELL_ID")["$id"],
+                data={"setting_data": doc["$id"]}
+            )
+            log_to_appwrite(f"📌 Created UNKNOWN cell and set as active: {doc['$id']}")
+        except Exception as e:
+            log_to_appwrite(f"❌ Failed to create UNKNOWN cell: {e}")
 
 def get_force_progress():
     flag = get_setting("FORCE_PROGRESS")
@@ -337,6 +363,13 @@ def fail_active_cell():
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
 
 def main():
+    # 🕒 Watchdog timestamp file update
+    def ping_watchdog():
+        try:
+            with open("/tmp/battery_watchdog.ping", "w") as f:
+                f.write(datetime.now().isoformat())
+        except Exception as e:
+            log_to_appwrite(f"⚠️ Failed to ping watchdog: {e}")
     global current_position
     log_to_appwrite("🚀 MAIN STARTED")
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
@@ -360,6 +393,7 @@ def main():
     fail_active_cell()
     try:
         while True:
+            ping_watchdog()  # 🐶
             log_to_appwrite("🔍 Checking for active cell...")
             cell_id = get_active_cell_id()
             if not cell_id:
