@@ -203,104 +203,127 @@ def do_voltage_measure_step(ser, bid):
 
 def do_charge_step(client, bid, ser):
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     # Toggle charging relay (MODBUS_OUTPUT_CHARGE_SWITCH)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
     time.sleep(1)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     # Perform measurement
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     voltage, current, mode = measure_from_serial(ser)
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
-    if voltage:
+        if voltage:
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
         # Estimate internal resistance if open-circuit voltage is known
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
         try:
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
             ocv_entry = databases.list_documents(
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 database_id=DATABASE_ID,
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 collection_id=DISCHARGE_COLLECTION,
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 queries=[Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
             ).get("documents", [])[0]
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
             ocv = ocv_entry.get("voltage")
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
             if ocv and current and voltage:
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 resistance = round((ocv - voltage) / current, 3) if current else None
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 update_battery_status(bid, {"belso_ellenallas": resistance})
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
                 log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
         except Exception as e:
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
             log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
     mode = get_discharge_switch_mode()
+
+    # Open-circuit measurement before discharge
     voltage_oc, _, _ = measure_from_serial(ser)
     if voltage_oc:
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage_oc, None, True, mode)
+
+    # Start discharge
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
     time.sleep(2)
+
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
+
+    # Estimate internal resistance now that we have both OCV and loaded voltage
+    try:
+        logs = databases.list_documents(
+            database_id=DATABASE_ID,
+            collection_id=DISCHARGE_COLLECTION,
+            queries=[Query.equal("battery", [bid])]
+        ).get("documents", [])
+        ocv = next((entry.get("voltage") for entry in logs if entry.get("open_circuit")), None)
+        under_load = next((entry.get("voltage") for entry in logs if not entry.get("open_circuit")), None)
+        current_val = next((entry.get("dischargecurrent") for entry in logs if not entry.get("open_circuit")), None)
+        if ocv and under_load and current_val:
+            resistance = round((ocv - under_load) / current_val, 3)
+            update_battery_status(bid, {"belso_ellenallas": resistance})
+            log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Failed to estimate resistance: {e}")
+
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
     voltage, current, mode = measure_from_serial(ser)
-    if voltage:
+        if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
 
