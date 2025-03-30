@@ -38,7 +38,7 @@ BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
 # The sensor coil address used for reading the endstop sensor (LOGO! V2.0). Adjust as needed.
-SENSOR_COIL_ADDRESS = 7  # <--- ADJUST IF NEEDED
+SENSOR_COIL_ADDRESS = 8  # <--- ADJUST IF NEEDED
 
 # The original code used these constants for outputs:
 MODBUS_OUTPUT_PWM_ENABLE = 0
