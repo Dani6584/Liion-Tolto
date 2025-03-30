@@ -164,14 +164,39 @@ def open_serial_port():
 
 def measure_from_serial(ser):
     try:
-        ser.write(b"MEASURE\n")
-        time.sleep(2)
-        line = ser.readline().decode(errors='ignore').strip()
-        data = json.loads(line)
-        return float(data.get("voltage", 0.0)), float(data.get("current", 0.0)), int(data.get("mode", 1))
+        lines = []
+        timeout = time.time() + 5
+        while time.time() < timeout:
+            line = ser.readline().decode(errors='ignore').strip()
+            if not line:
+                continue
+            log_to_appwrite(f"🔎 Serial line: {line}")
+            lines.append(line)
+            try:
+                data = json.loads(line)
+                voltage = float(data.get("chargerA_voltage", 0.0))
+                current = float(data.get("charge", 0.0)) / 1000.0  # Convert mA to A for storage
+                mode = 1  # fallback mode
+                discharge_current = float(data.get("discharge", 0.0)) / 1000.0
+                discharge_voltage = float(data.get("discharge_voltage", 0.0))
+                charger_b_voltage = float(data.get("chargerB_voltage", 0.0))
+
+                # 🔍 Kontroll ellenállás számítás (ha discharge_current hibás lenne)
+                resistance_check = None
+                if discharge_current > 0:
+                    resistance_check = round(discharge_voltage / discharge_current, 2)
+                    log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
+
+                return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
+            except Exception as e:
+                continue
+        raise ValueError("No valid structured measurement found in serial input")
     except Exception as e:
         log_to_appwrite(f"measure_from_serial error: {e}")
-    return None, None, None
+        return None, None, None, None, None, None
+    except Exception as e:
+        log_to_appwrite(f"measure_from_serial error: {e}")
+        return None, None, None
 
 # Core steps
 
@@ -245,7 +270,7 @@ def do_discharge_step(client, bid, ser):
 
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current / 1000.0, False, mode)
 
     # Estimate internal resistance now that we have both OCV and loaded voltage
     try:
@@ -302,6 +327,15 @@ def get_force_progress():
     flag = get_setting("FORCE_PROGRESS")
     return flag and flag.get("setting_boolean")
 
+def fail_active_cell():
+    try:
+        doc = get_setting("ACTIVE_CELL_ID")
+        if doc and doc.get("setting_data"):
+            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "allapot": "Hibás indulás"})
+            log_to_appwrite("❌ Marked active cell as failed on startup")
+    except Exception as e:
+        log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
+
 def main():
     global current_position
     log_to_appwrite("🚀 MAIN STARTED")
@@ -314,6 +348,16 @@ def main():
         log_to_appwrite("❌ Modbus connection failed. Exiting.")
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
+
+    # 🔒 On startup: reset all outputs and fail current active cell
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+    client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
+    client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
+    log_to_appwrite("🧹 All Modbus outputs reset")
+    fail_active_cell()
     try:
         while True:
             log_to_appwrite("🔍 Checking for active cell...")
@@ -339,7 +383,8 @@ def main():
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
             # Automatically set next status once operation is confirmed complete
-            if status in STATUS_TO_POSITION:
+            # Only rotate at the very beginning if status is in [7, 9]
+            if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
                 rotate_to_position(client, STATUS_TO_POSITION[status])
 
             # Only steps the hardware should fully automate
