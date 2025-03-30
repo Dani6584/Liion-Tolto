@@ -489,10 +489,10 @@ def main():
                 })
             elif status == 7:
                 do_output_step(client, cell_id, good=True)
-                update_battery_status(cell_id, {"operation": 1})
+                update_battery_status(cell_id, {"status": 10, "operation": 0, "allapot_uzenet": "Jó cella kiadva"})
             elif status == 9:
                 do_output_step(client, cell_id, good=False)
-                update_battery_status(cell_id, {"operation": 1})
+                update_battery_status(cell_id, {"status": 10, "operation": 0, "allapot_uzenet": "Rossz cella kiadva"})
 
             time.sleep(1)
     except KeyboardInterrupt:
