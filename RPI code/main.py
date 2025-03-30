@@ -202,10 +202,9 @@ def measure_from_serial(ser):
 
 def rotate_to_position(client, target):
     global current_position
-    steps = (target - current_position + 6) % 6  # Ensure positive result
+    steps = (target - current_position) % 6
     for _ in range(steps):
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 1)
-    log_to_appwrite(f"⚙️ write_coil({MODBUS_OUTPUT_PWM_ENABLE}, {1}) issued")
         time.sleep(ROTATE_ON_TIME)
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
         time.sleep(ROTATE_OFF_TIME)
@@ -228,7 +227,7 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
 
 def do_charge_step(client, bid, ser):
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, mode = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     # Toggle charging relay (MODBUS_OUTPUT_CHARGE_SWITCH)
@@ -236,7 +235,7 @@ def do_charge_step(client, bid, ser):
     time.sleep(1)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
 
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, mode = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
 
@@ -293,7 +292,7 @@ def do_discharge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
-    voltage, current, mode, *_ = measure_from_serial(ser)
+    voltage, current, mode = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
 
@@ -425,7 +424,7 @@ def main():
             # Only steps the hardware should fully automate
             if status == 1:
                 do_loading_step(client, cell_id)
-                # rotate_to_position(client, STATUS_TO_POSITION[2])  # removed to avoid double rotation
+                rotate_to_position(client, STATUS_TO_POSITION[2])  # move to measurement position
                 update_battery_status(cell_id, {"status": 2, "operation": 0})
             elif status == 2:
                 do_voltage_measure_step(ser, cell_id)
