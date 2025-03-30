@@ -37,10 +37,8 @@ BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
-# The sensor coil address used for reading the endstop sensor (LOGO! V2.0). Adjust as needed.
-SENSOR_COIL_ADDRESS = 8  # <--- ADJUST IF NEEDED
+SENSOR_COIL_ADDRESS = 8  # revert to coil 8
 
-# The original code used these constants for outputs:
 MODBUS_OUTPUT_PWM_ENABLE = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -48,7 +46,6 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 
-# For revolve logic, we keep track of the current revolver position in code:
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 current_position = 0
 
@@ -140,9 +137,9 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
             "mode": mode
         }
         if current:
-            if collection_id == "67d18e17000dc1b54f39":  # CHARGE_COLLECTION
+            if collection_id == CHARGE_COLLECTION:
                 payload["chargecurrent"] = current
-            elif collection_id == "67ac8901003b19f4ca35":  # DISCHARGE_COLLECTION
+            elif collection_id == DISCHARGE_COLLECTION:
                 payload["dischargecurrent"] = current
 
         databases.create_document(DATABASE_ID, collection_id, "unique()", data=payload)
@@ -185,29 +182,25 @@ def measure_from_serial(ser):
                 discharge_voltage = float(data.get("discharge_voltage", 0.0))
                 charger_b_voltage = float(data.get("chargerB_voltage", 0.0))
 
-                # 🔍 Kontroll ellenállás számítás (ha discharge_current hibás lenne)
                 if discharge_current > 0:
                     resistance_check = round(discharge_voltage / discharge_current, 2)
                     log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
 
                 return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
-            except Exception as e:
+            except Exception:
                 continue
         raise ValueError("No valid structured measurement found in serial input")
     except Exception as e:
         log_to_appwrite(f"measure_from_serial error: {e}")
         return None, None, None, None, None, None
-    except Exception as e:
-        log_to_appwrite(f"measure_from_serial error: {e}")
-        return None, None, None
 
 # ==========================
-# NEW: Endstop-based revolve logic
+# Old coil-based revolve logic
 # ==========================
 
 def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
     """
-    Waits until the sensor connected to a Modbus coil (e.g., V2.0) performs a LOW -> HIGH transition.
+    Waits until the sensor connected to a Modbus coil (V2.0) performs a LOW -> HIGH transition.
     address: coil address for the sensor
     timeout: max time to wait in seconds
     """
@@ -216,8 +209,8 @@ def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10)
     # Wait for sensor to go LOW first
     while True:
         result = client.read_coils(address=address, count=1)
-        if result and len(result.bits) > 0:
-            if not result.bits[0]:
+        if not result.isError():
+            if len(result.bits) > 0 and not result.bits[0]:
                 break
         if time.time() - start_time > timeout:
             log_to_appwrite("⚠️ Timeout while waiting for sensor to go LOW")
@@ -227,8 +220,8 @@ def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10)
     # Then wait for sensor to go HIGH
     while True:
         result = client.read_coils(address=address, count=1)
-        if result and len(result.bits) > 0:
-            if result.bits[0]:
+        if not result.isError():
+            if len(result.bits) > 0 and result.bits[0]:
                 break
         if time.time() - start_time > timeout:
             log_to_appwrite("⚠️ Timeout while waiting for sensor to go HIGH")
@@ -240,31 +233,22 @@ def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10)
 
 
 def rotate_to_position(client, target_position):
-    """
-    Rotates the revolver to a specific logical position (0–5), using endstop sensor detection.
-    This REPLACES the old time-based stepping approach.
-    """
     global current_position
     steps_needed = (target_position - current_position) % 6
     log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position} ({steps_needed} steps)")
 
     for step in range(steps_needed):
         log_to_appwrite(f"🔄 Step {step + 1}/{steps_needed}")
-        # Start motor
+
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, True)
 
-        # Wait for sensor to detect a rising edge
         if not wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
-            # If we never get a rising edge, abort
             client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
             log_to_appwrite("❌ Sensor edge not detected. Aborting rotation.")
             return
 
-        # Stop motor
         client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
         time.sleep(0.5)
-
-        # Update the in-software position
         current_position = (current_position + 1) % 6
 
     log_to_appwrite(f"✅ Reached position {current_position}")
@@ -291,17 +275,15 @@ def do_voltage_measure_step(ser, bid):
 def do_charge_step(client, bid, ser):
     voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite("67d18e17000dc1b54f39", bid, voltage, current, False, mode)
-    # Toggle charging relay
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
     time.sleep(1)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
 
     voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite("67d18e17000dc1b54f39", bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
 
-    # Estimate internal resistance if open-circuit voltage is known
     try:
         ocv_entry = databases.list_documents(
             database_id=DATABASE_ID,
@@ -310,7 +292,7 @@ def do_charge_step(client, bid, ser):
         ).get("documents", [])[0]
         ocv = ocv_entry.get("voltage")
         if ocv and current and voltage:
-            resistance = round((ocv - voltage) / current, 3) if current else None
+            resistance = round((ocv - voltage) / current, 3)
             update_battery_status(bid, {"belso_ellenallas": resistance})
             log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
     except Exception as e:
@@ -321,21 +303,17 @@ def do_charge_step(client, bid, ser):
 def do_discharge_step(client, bid, ser):
     mode = get_discharge_switch_mode()
 
-    # Open-circuit measurement before discharge
-    voltage_oc, _, _ = measure_from_serial(ser)
+    voltage_oc, *_ = measure_from_serial(ser)
     if voltage_oc:
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage_oc, None, True, mode)
 
-    # Start discharge
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
     time.sleep(2)
 
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
-        # NB: the original code tried to do `/ 1000.0` but measure_from_serial already does that
         save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
 
-    # Estimate internal resistance now that we have both OCV and loaded voltage
     try:
         logs = databases.list_documents(
             database_id=DATABASE_ID,
@@ -368,14 +346,12 @@ def do_output_step(client, bid, good=True):
     client.write_coil(coil, 0)
     update_battery_status(bid, {"operation": 1})
 
-# OCR motor rotation if no cell read
-
 def rotate_ocr_motor(client):
     log_to_appwrite("🔁 Rotating OCR motor due to failed read")
     max_attempts = 5
     for attempt in range(max_attempts):
         log_to_appwrite(f"🔄 OCR rotation attempt {attempt + 1}/{max_attempts}")
-        client.write_coil(6, 1)  # Q7 (V0.7)
+        client.write_coil(6, 1)
         time.sleep(1)
         client.write_coil(6, 0)
         time.sleep(1)
@@ -385,7 +361,6 @@ def rotate_ocr_motor(client):
             break
     else:
         log_to_appwrite("❌ No cell detected after max OCR rotation attempts")
-        # Create UNKNOWN CELL entry
         try:
             doc = databases.create_document(
                 database_id=DATABASE_ID,
@@ -401,7 +376,6 @@ def rotate_ocr_motor(client):
                     "ideal_voltage": ""
                 }
             )
-            # Set this new ID as ACTIVE_CELL_ID
             doc_active = get_setting("ACTIVE_CELL_ID")
             if doc_active:
                 databases.update_document(
@@ -447,7 +421,6 @@ def main():
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
 
-    # Reset all outputs and fail current active cell
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
@@ -482,13 +455,11 @@ def main():
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
-            # If we are at position 0, and the status is 7 or 9, we rotate to the ejection position.
             if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
                 rotate_to_position(client, STATUS_TO_POSITION[status])
 
             if status == 1:
                 do_loading_step(client, cell_id)
-                # Now revolve to measurement position
                 rotate_to_position(client, STATUS_TO_POSITION[2])
                 update_battery_status(cell_id, {"status": 2, "operation": 0})
             elif status == 2:
