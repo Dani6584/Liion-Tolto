@@ -90,6 +90,10 @@ def get_setting(name):
         return None
 
 def get_active_cell_id():
+    test_flag = get_setting("TEST_MODE")
+    if test_flag and test_flag.get("setting_boolean"):
+        log_to_appwrite("🧪 TEST MODE active – using dummy cell")
+        return "TEST_CELL_ID"
     doc = get_setting("ACTIVE_CELL_ID")
     if doc:
         return doc.get("setting_data")
@@ -100,6 +104,17 @@ def get_discharge_switch_mode():
     return 1 if doc and doc.get("setting_boolean") else 2
 
 def get_battery_by_id(bid):
+    if bid == "TEST_CELL_ID":
+        log_to_appwrite("🧪 Returning dummy battery document for test mode")
+        return {
+            "$id": bid,
+            "status": 1,
+            "operation": 0,
+            "chargecapacity": 1900,
+            "dischargecapacity": 1850,
+            "measured_capacity": None,
+            "allapot": None
+        }
     try:
         return databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid)
     except Exception as e:
@@ -190,6 +205,85 @@ def do_charge_step(client, bid, ser):
     voltage, current, mode = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+    # Toggle charging relay (MODBUS_OUTPUT_CHARGE_SWITCH)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
+    time.sleep(1)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+    # Perform measurement
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+    voltage, current, mode = measure_from_serial(ser)
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+    if voltage:
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        # Estimate internal resistance if open-circuit voltage is known
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        try:
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+            ocv_entry = databases.list_documents(
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                database_id=DATABASE_ID,
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                collection_id=DISCHARGE_COLLECTION,
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                queries=[Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+            ).get("documents", [])[0]
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+            ocv = ocv_entry.get("voltage")
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+            if ocv and current and voltage:
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                resistance = round((ocv - voltage) / current, 3) if current else None
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                update_battery_status(bid, {"belso_ellenallas": resistance})
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+                log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+        except Exception as e:
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
+            log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
+    voltage, current, mode = measure_from_serial(ser)
+    if voltage:
+        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
     update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
@@ -219,6 +313,22 @@ def do_output_step(client, bid, good=True):
 
 # Main loop
 
+def rotate_ocr_motor(client):
+    log_to_appwrite("🔁 Rotating OCR motor due to failed read")
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        log_to_appwrite(f"🔄 OCR rotation attempt {attempt + 1}/{max_attempts}")
+        client.write_coil(6, 1)  # Q7 (V0.7)
+        time.sleep(1)
+        client.write_coil(6, 0)
+        time.sleep(1)
+        cell_id = get_active_cell_id()
+        if cell_id:
+            log_to_appwrite(f"✅ Cell detected after rotation attempt {attempt + 1}")
+            break
+    else:
+        log_to_appwrite("❌ No cell detected after max OCR rotation attempts")
+
 def main():
     global current_position
     log_to_appwrite("🚀 MAIN STARTED")
@@ -237,6 +347,7 @@ def main():
             cell_id = get_active_cell_id()
             if not cell_id:
                 log_to_appwrite("🕵️ No active cell ID found.")
+                rotate_ocr_motor(client)
                 time.sleep(3)
                 continue
             bat = get_battery_by_id(cell_id)
@@ -269,13 +380,59 @@ def main():
             # Remaining steps require web interface to decide when to move on
             elif status == 3:
                 do_charge_step(client, cell_id, ser)
-                update_battery_status(cell_id, {"operation": 1})
+                log_to_appwrite("⚡ Charging started")
+                update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
             elif status == 4:
                 do_discharge_step(client, cell_id, ser)
-                update_battery_status(cell_id, {"operation": 1})
+                log_to_appwrite("🔋 Discharge started")
+                update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat()})
             elif status == 5:
                 do_recharge_step(client, cell_id, ser)
-                update_battery_status(cell_id, {"operation": 1})
+                log_to_appwrite("🔁 Recharge started")
+                bat = get_battery_by_id(cell_id)
+                charge = bat.get("chargecapacity") or 0
+                discharge = bat.get("dischargecapacity") or 0
+                measured = discharge or 0
+                if not measured:
+                    # Try to calculate from historical measurements (discharge)
+                    try:
+                        logs = databases.list_documents(
+                            database_id=DATABASE_ID,
+                            collection_id=DISCHARGE_COLLECTION,
+                            queries=[Query.equal("battery", [cell_id])]
+                        ).get("documents", [])
+                        measured = sum(entry.get("dischargecurrent", 0) * 1 for entry in logs if entry.get("dischargecurrent"))
+                        measured = round(measured / 3600, 2)
+                    except Exception as e:
+                        log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
+
+                # Also estimate charge capacity if not set
+                if not charge:
+                    try:
+                        logs = databases.list_documents(
+                            database_id=DATABASE_ID,
+                            collection_id=CHARGE_COLLECTION,
+                            queries=[Query.equal("battery", [cell_id])]
+                        ).get("documents", [])
+                        charge = sum(entry.get("chargecurrent", 0) * 1 for entry in logs if entry.get("chargecurrent"))
+                        charge = round(charge / 3600, 2)
+                        update_battery_status(cell_id, {"chargecapacity": charge})
+                        log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
+                    except Exception as e:
+                        log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")  # approx mAh if current in A, 1s sampling
+                    except Exception as e:
+                        log_to_appwrite(f"❌ Capacity estimation failed: {e}")
+                quality = "Jó" if measured >= 1800 else "Rossz"
+                status_next = 7 if quality == "Jó" else 9
+                log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
+                update_battery_status(cell_id, {
+                    "status": status_next,
+                    "operation": 0,
+                    "recharge_kezdes": datetime.now().isoformat(),
+                    "recharge_vege": datetime.now().isoformat(),
+                    "measured_capacity": measured,
+                    "allapot": quality
+                })
             elif status == 7:
                 do_output_step(client, cell_id, good=True)
                 update_battery_status(cell_id, {"operation": 1})
