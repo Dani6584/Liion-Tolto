@@ -37,11 +37,10 @@ BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
-ROTATE_ON_TIME = 1
-ROTATE_OFF_TIME = 2
-SERIAL_PORT = "/dev/ttyACM0"
+# The sensor coil address used for reading the endstop sensor (LOGO! V2.0). Adjust as needed.
+SENSOR_COIL_ADDRESS = 6  # <--- ADJUST IF NEEDED (the user previously used coil #6 for OCR motor)
 
-# Modbus outputs
+# The original code used these constants for outputs:
 MODBUS_OUTPUT_PWM_ENABLE = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -49,8 +48,13 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 
+# For revolve logic, we keep track of the current revolver position in code:
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 current_position = 0
+
+ROTATE_ON_TIME = 1
+ROTATE_OFF_TIME = 2
+SERIAL_PORT = "/dev/ttyACM0"
 
 # Logging
 
@@ -165,8 +169,8 @@ def open_serial_port():
 def measure_from_serial(ser):
     try:
         lines = []
-        timeout = time.time() + 5
-        while time.time() < timeout:
+        timeout_val = time.time() + 5
+        while time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
             if not line:
                 continue
@@ -182,7 +186,6 @@ def measure_from_serial(ser):
                 charger_b_voltage = float(data.get("chargerB_voltage", 0.0))
 
                 # 🔍 Kontroll ellenállás számítás (ha discharge_current hibás lenne)
-                resistance_check = None
                 if discharge_current > 0:
                     resistance_check = round(discharge_voltage / discharge_current, 2)
                     log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
@@ -198,18 +201,77 @@ def measure_from_serial(ser):
         log_to_appwrite(f"measure_from_serial error: {e}")
         return None, None, None
 
-# Core steps
+# ==========================
+# NEW: Endstop-based revolve logic
+# ==========================
 
-def rotate_to_position(client, target):
+def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
+    """
+    Waits until the sensor connected to a Modbus coil (e.g., V2.0) performs a LOW -> HIGH transition.
+    address: coil address for the sensor
+    timeout: max time to wait in seconds
+    """
+    start_time = time.time()
+
+    # Wait for sensor to go LOW first
+    while True:
+        result = client.read_coils(address, 1)
+        if result and len(result.bits) > 0:
+            if not result.bits[0]:
+                break
+        if time.time() - start_time > timeout:
+            log_to_appwrite("⚠️ Timeout while waiting for sensor to go LOW")
+            return False
+        time.sleep(0.05)
+
+    # Then wait for sensor to go HIGH
+    while True:
+        result = client.read_coils(address, 1)
+        if result and len(result.bits) > 0:
+            if result.bits[0]:
+                break
+        if time.time() - start_time > timeout:
+            log_to_appwrite("⚠️ Timeout while waiting for sensor to go HIGH")
+            return False
+        time.sleep(0.05)
+
+    log_to_appwrite("📍 Sensor edge detected (LOW → HIGH)")
+    return True
+
+
+def rotate_to_position(client, target_position):
+    """
+    Rotates the revolver to a specific logical position (0–5), using endstop sensor detection.
+    This REPLACES the old time-based stepping approach.
+    """
     global current_position
-    steps = (target - current_position) % 6
-    for _ in range(steps):
-        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 1)
-        time.sleep(ROTATE_ON_TIME)
-        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
-        time.sleep(ROTATE_OFF_TIME)
-    current_position = target
-    log_to_appwrite(f"🔄 Revolver moved {steps} steps to position {target}")
+    steps_needed = (target_position - current_position) % 6
+    log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position} ({steps_needed} steps)")
+
+    for step in range(steps_needed):
+        log_to_appwrite(f"🔄 Step {step + 1}/{steps_needed}")
+        # Start motor
+        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, True)
+
+        # Wait for sensor to detect a rising edge
+        if not wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
+            # If we never get a rising edge, abort
+            client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
+            log_to_appwrite("❌ Sensor edge not detected. Aborting rotation.")
+            return
+
+        # Stop motor
+        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
+        time.sleep(0.5)
+
+        # Update the in-software position
+        current_position = (current_position + 1) % 6
+
+    log_to_appwrite(f"✅ Reached position {current_position}")
+
+# ==========================
+# End revolve logic
+# ==========================
 
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
@@ -227,15 +289,15 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
 
 def do_charge_step(client, bid, ser):
-    voltage, current, mode = measure_from_serial(ser)
+    voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
-    # Toggle charging relay (MODBUS_OUTPUT_CHARGE_SWITCH)
+    # Toggle charging relay
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
     time.sleep(1)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
 
-    voltage, current, mode = measure_from_serial(ser)
+    voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
 
@@ -270,7 +332,9 @@ def do_discharge_step(client, bid, ser):
 
     voltage, current, _ = measure_from_serial(ser)
     if voltage:
-        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current / 1000.0, False, mode)
+        # NB: the original code tried to do `/ 1000.0` but you already do that in measure_from_serial
+        # so let's not double-convert
+        save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False, mode)
 
     # Estimate internal resistance now that we have both OCV and loaded voltage
     try:
@@ -292,7 +356,7 @@ def do_discharge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
-    voltage, current, mode = measure_from_serial(ser)
+    voltage, current, mode, *_ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, mode)
 
@@ -305,7 +369,7 @@ def do_output_step(client, bid, good=True):
     client.write_coil(coil, 0)
     update_battery_status(bid, {"operation": 1})
 
-# Main loop
+# OCR motor rotation if no cell read
 
 def rotate_ocr_motor(client):
     log_to_appwrite("🔁 Rotating OCR motor due to failed read")
@@ -339,15 +403,18 @@ def rotate_ocr_motor(client):
                 }
             )
             # Set this new ID as ACTIVE_CELL_ID
-            databases.update_document(
-                database_id=DATABASE_ID,
-                collection_id=HARDWARE_FLAGS_COLLECTION,
-                document_id=get_setting("ACTIVE_CELL_ID")["$id"],
-                data={"setting_data": doc["$id"]}
-            )
+            doc_active = get_setting("ACTIVE_CELL_ID")
+            if doc_active:
+                databases.update_document(
+                    database_id=DATABASE_ID,
+                    collection_id=HARDWARE_FLAGS_COLLECTION,
+                    document_id=doc_active["$id"],
+                    data={"setting_data": doc["$id"]}
+                )
             log_to_appwrite(f"📌 Created UNKNOWN cell and set as active: {doc['$id']}")
         except Exception as e:
             log_to_appwrite(f"❌ Failed to create UNKNOWN cell: {e}")
+
 
 def get_force_progress():
     flag = get_setting("FORCE_PROGRESS")
@@ -363,7 +430,6 @@ def fail_active_cell():
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
 
 def main():
-    # 🕒 Watchdog timestamp file update
     def ping_watchdog():
         try:
             with open("/tmp/battery_watchdog.ping", "w") as f:
@@ -382,7 +448,7 @@ def main():
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
 
-    # 🔒 On startup: reset all outputs and fail current active cell
+    # Reset all outputs and fail current active cell
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
@@ -391,9 +457,10 @@ def main():
     client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
     log_to_appwrite("🧹 All Modbus outputs reset")
     fail_active_cell()
+
     try:
         while True:
-            ping_watchdog()  # 🐶
+            ping_watchdog()
             log_to_appwrite("🔍 Checking for active cell...")
             cell_id = get_active_cell_id()
             if not cell_id:
@@ -416,22 +483,20 @@ def main():
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
-            # Automatically set next status once operation is confirmed complete
-            # Only rotate at the very beginning if status is in [7, 9]
+            # If we are at position 0, and the status is 7 or 9, we rotate to the ejection position.
             if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
                 rotate_to_position(client, STATUS_TO_POSITION[status])
 
-            # Only steps the hardware should fully automate
             if status == 1:
                 do_loading_step(client, cell_id)
-                rotate_to_position(client, STATUS_TO_POSITION[2])  # move to measurement position
+                # Now revolve to measurement position
+                rotate_to_position(client, STATUS_TO_POSITION[2])
                 update_battery_status(cell_id, {"status": 2, "operation": 0})
             elif status == 2:
                 do_voltage_measure_step(ser, cell_id)
                 log_to_appwrite("➡️ Switching to charging phase (status = 3)")
                 update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
 
-            # Remaining steps require web interface to decide when to move on
             elif status == 3:
                 do_charge_step(client, cell_id, ser)
                 log_to_appwrite("⚡ Charging started")
@@ -448,19 +513,16 @@ def main():
                 discharge = bat.get("dischargecapacity") or 0
                 measured = discharge or 0
                 if not measured:
-                    # Try to calculate from historical measurements (discharge)
                     try:
                         logs = databases.list_documents(
                             database_id=DATABASE_ID,
                             collection_id=DISCHARGE_COLLECTION,
                             queries=[Query.equal("battery", [cell_id])]
                         ).get("documents", [])
-                        measured = sum(entry.get("dischargecurrent", 0) * 1 for entry in logs if entry.get("dischargecurrent"))
+                        measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
                         measured = round(measured / 3600, 2)
                     except Exception as e:
                         log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
-
-                # Also estimate charge capacity if not set
                 if not charge:
                     try:
                         logs = databases.list_documents(
@@ -468,12 +530,12 @@ def main():
                             collection_id=CHARGE_COLLECTION,
                             queries=[Query.equal("battery", [cell_id])]
                         ).get("documents", [])
-                        charge = sum(entry.get("chargecurrent", 0) * 1 for entry in logs if entry.get("chargecurrent"))
+                        charge = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
                         charge = round(charge / 3600, 2)
                         update_battery_status(cell_id, {"chargecapacity": charge})
                         log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
                     except Exception as e:
-                        log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")  # approx mAh if current in A, 1s sampling
+                        log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
                     except Exception as e:
                         log_to_appwrite(f"❌ Capacity estimation failed: {e}")
                 quality = "Jó" if measured >= 1800 else "Rossz"
@@ -490,14 +552,13 @@ def main():
             elif status == 7:
                 do_output_step(client, cell_id, good=True)
                 update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
-                # Remove ACTIVE_CELL_ID
                 try:
-                    doc = get_setting("ACTIVE_CELL_ID")
-                    if doc:
+                    doc_active = get_setting("ACTIVE_CELL_ID")
+                    if doc_active:
                         databases.update_document(
                             database_id=DATABASE_ID,
                             collection_id=HARDWARE_FLAGS_COLLECTION,
-                            document_id=doc["$id"],
+                            document_id=doc_active["$id"],
                             data={"setting_data": None}
                         )
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
@@ -506,14 +567,13 @@ def main():
             elif status == 9:
                 do_output_step(client, cell_id, good=False)
                 update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
-                # Remove ACTIVE_CELL_ID
                 try:
-                    doc = get_setting("ACTIVE_CELL_ID")
-                    if doc:
+                    doc_active = get_setting("ACTIVE_CELL_ID")
+                    if doc_active:
                         databases.update_document(
                             database_id=DATABASE_ID,
                             collection_id=HARDWARE_FLAGS_COLLECTION,
-                            document_id=doc["$id"],
+                            document_id=doc_active["$id"],
                             data={"setting_data": None}
                         )
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
