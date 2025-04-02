@@ -46,7 +46,6 @@ MODBUS_OUTPUT_DISCHARGE = 5
 MODBUS_OUTPUT_DCMOTOR = 6
 
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
-current_position = 0
 
 ROTATE_ON_TIME = 1
 ROTATE_OFF_TIME = 2
@@ -190,7 +189,7 @@ def measure_from_serial(ser):
 
 # State functions
 def rotate_to_position(client, current_position, target_position):
-    log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position}")
+    log_to_appwrite(f"Position: {current_position} → {target_position}")
 
     client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
     while True:
@@ -202,7 +201,7 @@ def rotate_to_position(client, current_position, target_position):
         time.sleep(0.05)
 
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
-    log_to_appwrite(f"✅ Reached position {target_position}")
+    log_to_appwrite(f"Position reached: {target_position}")
 
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
@@ -212,13 +211,14 @@ def do_loading_step(client, bid):
     update_battery_status(bid, {"operation": 1})
 
 def do_voltage_measure_step(ser, bid):
-    log_to_appwrite(f"Voltage Measurement...")
+    log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
         if voltage < 2.5:
             update_battery_status(bid, {"status": 9, "operation": 0})
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
+    log_to_appwrite("Voltage measurement: ✅")
 
 def do_charge_step(client, bid, ser):
     log_to_appwrite("⚡ Charging started")
@@ -382,7 +382,6 @@ def main():
                 f.write(datetime.now().isoformat())
         except Exception as e:
             log_to_appwrite(f"⚠️ Failed to ping watchdog: {e}")
-    global current_position
     log_to_appwrite("🚀 MAIN STARTED")
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
     ser = open_serial_port()
