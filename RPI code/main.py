@@ -1,5 +1,3 @@
-# Li-ion Battery Handler using Appwrite SDK (with hardcoded credentials)
-
 import os
 import time
 import json
@@ -37,14 +35,15 @@ BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
-SENSOR_COIL_ADDRESS = 8  # revert to coil 8
+SENSOR_COIL_ADDRESS = 8
 
-MODBUS_OUTPUT_PWM_ENABLE = 0
+MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
 MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
+MODBUS_OUTPUT_DCMOTOR = 6
 
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 current_position = 0
@@ -54,7 +53,6 @@ ROTATE_OFF_TIME = 2
 SERIAL_PORT = "/dev/ttyACM0"
 
 # Logging
-
 def log_to_appwrite(message):
     timestamp = datetime.now().isoformat()
     formatted = f"{timestamp} – {message}"
@@ -75,7 +73,6 @@ def log_to_appwrite(message):
         pass
 
 # Appwrite helpers
-
 def get_setting(name):
     try:
         res = databases.list_documents(
@@ -148,7 +145,6 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
         log_to_appwrite(f"save_measurement error: {e}")
 
 # Serial helpers
-
 def find_serial_port():
     ports = glob.glob("/dev/ttyACM*") + glob.glob("/dev/ttyUSB*")
     return ports[0] if ports else None
@@ -192,13 +188,11 @@ def measure_from_serial(ser):
         log_to_appwrite(f"measure_from_serial error: {e}")
         return None, None, None, None, None, None
 
-# ==========================
-# Revolver Logic
-# ==========================
+# State functions
 def rotate_to_position(client, current_position, target_position):
     log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position}")
 
-    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, True)
+    client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
     while True:
         coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
         if not coils.isError():
@@ -207,11 +201,8 @@ def rotate_to_position(client, current_position, target_position):
 
         time.sleep(0.05)
 
-    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
+    client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
     log_to_appwrite(f"✅ Reached position {target_position}")
-# ==========================
-# End of revolver logic
-# ==========================
 
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
@@ -279,8 +270,9 @@ def do_discharge_step(client, bid, ser):
             open_circuit=True
         )
 
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, True)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
     time.sleep(2)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
 
     voltage_load, current_load, *_ = measure_from_serial(ser)
     if voltage_load:
@@ -333,9 +325,9 @@ def rotate_ocr_motor(client):
     max_attempts = 5
     for attempt in range(max_attempts):
         log_to_appwrite(f"🔄 OCR rotation attempt {attempt + 1}/{max_attempts}")
-        client.write_coil(6, 1)
+        client.write_coil(MODBUS_OUTPUT_DCMOTOR, 1)
         time.sleep(1)
-        client.write_coil(6, 0)
+        client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
         time.sleep(1)
         cell_id = get_active_cell_id()
         if cell_id:
@@ -402,12 +394,14 @@ def main():
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
 
+    client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
-    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, 0)
+    client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
+    
     log_to_appwrite("🧹 All Modbus outputs reset")
     fail_active_cell()
 
