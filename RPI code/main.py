@@ -221,6 +221,7 @@ def do_loading_step(client, bid):
     update_battery_status(bid, {"operation": 1})
 
 def do_voltage_measure_step(ser, bid):
+    log_to_appwrite(f"Voltage Measurement...")
     voltage, *_ = measure_from_serial(ser)
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
@@ -229,6 +230,7 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
 
 def do_charge_step(client, bid, ser):
+    log_to_appwrite("⚡ Charging started")
     voltage, current, *_ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
@@ -257,6 +259,7 @@ def do_charge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
+    log_to_appwrite("🔋 Discharge started")
     """
     Discharge step:
     - First measure OCV with open_circuit=True
@@ -308,6 +311,8 @@ def do_discharge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
+    log_to_appwrite("🔁 Recharge started")
+
     voltage, current, *_ = measure_from_serial(ser)
     if voltage:
         save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
@@ -315,6 +320,8 @@ def do_recharge_step(client, bid, ser):
     update_battery_status(bid, {"operation": 1})
 
 def do_output_step(client, bid, good=True):
+    log_to_appwrite(f"📦 Ejecting cell: {bid}")
+
     coil = MODBUS_OUTPUT_GOOD_EJECT if good else MODBUS_OUTPUT_BAD_EJECT
     client.write_coil(coil, 1)
     time.sleep(2)
@@ -362,7 +369,6 @@ def rotate_ocr_motor(client):
             log_to_appwrite(f"📌 Created UNKNOWN cell and set as active: {doc['$id']}")
         except Exception as e:
             log_to_appwrite(f"❌ Failed to create UNKNOWN cell: {e}")
-
 
 def get_force_progress():
     flag = get_setting("FORCE_PROGRESS")
@@ -421,6 +427,7 @@ def main():
                 log_to_appwrite(f"⚠️ Battery ID '{cell_id}' not found.")
                 time.sleep(3)
                 continue
+            
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
             force_progress = get_force_progress()
@@ -430,29 +437,35 @@ def main():
                 continue
             log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
+            # Status-ok kezelése
+            current_position = STATUS_TO_POSITION[bat.get("status")]
+
             if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
-                rotate_to_position(client, STATUS_TO_POSITION[status])
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
 
-            if status == 1:
+            if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
-                rotate_to_position(client, STATUS_TO_POSITION[2])
-                update_battery_status(cell_id, {"status": 2, "operation": 0})
-            elif status == 2:
-                do_voltage_measure_step(ser, cell_id)
-                log_to_appwrite("➡️ Switching to charging phase (status = 3)")
-                update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0})
 
-            elif status == 3:
+            elif status == 2: # Feszültségmérés
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                do_voltage_measure_step(ser, cell_id)
+                if operation == 1: update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
+
+            elif status == 3: # Töltés
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_charge_step(client, cell_id, ser)
-                log_to_appwrite("⚡ Charging started")
-                update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
-            elif status == 4:
+                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+
+            elif status == 4: # Merítés
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_discharge_step(client, cell_id, ser)
-                log_to_appwrite("🔋 Discharge started")
-                update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat()})
-            elif status == 5:
+                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat()})
+            
+            elif status == 5: # Újratöltés
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_recharge_step(client, cell_id, ser)
-                log_to_appwrite("🔁 Recharge started")
+                
                 bat = get_battery_by_id(cell_id)
                 charge = bat.get("chargecapacity") or 0
                 discharge = bat.get("dischargecapacity") or 0
@@ -494,37 +507,24 @@ def main():
                     "measured_capacity": measured,
                     "allapot": quality
                 })
-            elif status == 7:
-                do_output_step(client, cell_id, good=True)
+            
+            elif status in (7, 9): # Jó vagy Rossz
+                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                do_output_step(client, cell_id, good=(status == 7))
                 update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
-                try:
-                    doc_active = get_setting("ACTIVE_CELL_ID")
-                    if doc_active:
-                        databases.update_document(
-                            database_id=DATABASE_ID,
-                            collection_id=HARDWARE_FLAGS_COLLECTION,
-                            document_id=doc_active["$id"],
-                            data={"setting_data": None}
-                        )
-                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
-                except Exception as e:
-                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
-            elif status == 9:
-                do_output_step(client, cell_id, good=False)
-                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
-                try:
-                    doc_active = get_setting("ACTIVE_CELL_ID")
-                    if doc_active:
-                        databases.update_document(
-                            database_id=DATABASE_ID,
-                            collection_id=HARDWARE_FLAGS_COLLECTION,
-                            document_id=doc_active["$id"],
-                            data={"setting_data": None}
-                        )
-                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
-                except Exception as e:
-                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
 
+                try:
+                    doc_active = get_setting("ACTIVE_CELL_ID")
+                    if doc_active:
+                        databases.update_document(
+                            database_id=DATABASE_ID,
+                            collection_id=HARDWARE_FLAGS_COLLECTION,
+                            document_id=doc_active["$id"],
+                            data={"setting_data": None}
+                        )
+                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
+                except Exception as e:
+                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
