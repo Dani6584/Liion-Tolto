@@ -193,66 +193,24 @@ def measure_from_serial(ser):
         return None, None, None, None, None, None
 
 # ==========================
-# Old coil-based revolve logic
+# Revolver Logic
 # ==========================
+def rotate_to_position(client, current_position, target_position):
+    log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position}")
 
-def wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
-    """
-    Waits until the sensor connected to a Modbus coil (V2.0) performs a LOW -> HIGH transition.
-    address: coil address for the sensor
-    timeout: max time to wait in seconds
-    """
-    start_time = time.time()
-
-    # Wait for sensor to go LOW first
+    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, True)
     while True:
-        result = client.read_coils(address=address, count=1)
-        if not result.isError():
-            if len(result.bits) > 0 and not result.bits[0]:
+        coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
+        if not coils.isError():
+            if len(coils.bits) > 0 and not coils.bits[0]:
                 break
-        if time.time() - start_time > timeout:
-            log_to_appwrite("⚠️ Timeout while waiting for sensor to go LOW")
-            return False
+
         time.sleep(0.05)
 
-    # Then wait for sensor to go HIGH
-    while True:
-        result = client.read_coils(address=address, count=1)
-        if not result.isError():
-            if len(result.bits) > 0 and result.bits[0]:
-                break
-        if time.time() - start_time > timeout:
-            log_to_appwrite("⚠️ Timeout while waiting for sensor to go HIGH")
-            return False
-        time.sleep(0.05)
-
-    log_to_appwrite("📍 Sensor edge detected (LOW → HIGH)")
-    return True
-
-
-def rotate_to_position(client, target_position):
-    global current_position
-    steps_needed = (target_position - current_position) % 6
-    log_to_appwrite(f"🎯 Need to move from {current_position} to {target_position} ({steps_needed} steps)")
-
-    for step in range(steps_needed):
-        log_to_appwrite(f"🔄 Step {step + 1}/{steps_needed}")
-
-        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, True)
-
-        if not wait_for_sensor_rising_edge(client, address=SENSOR_COIL_ADDRESS, timeout=10):
-            client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
-            log_to_appwrite("❌ Sensor edge not detected. Aborting rotation.")
-            return
-
-        client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
-        time.sleep(0.5)
-        current_position = (current_position + 1) % 6
-
-    log_to_appwrite(f"✅ Reached position {current_position}")
-
+    client.write_coil(MODBUS_OUTPUT_PWM_ENABLE, False)
+    log_to_appwrite(f"✅ Reached position {target_position}")
 # ==========================
-# End revolve logic
+# End of revolver logic
 # ==========================
 
 def do_loading_step(client, bid):
