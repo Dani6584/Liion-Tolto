@@ -235,10 +235,10 @@ def do_charge_step(client, bid, ser):
 
         while voltage < 4.18:
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
-            update_battery_status(bid, {"CHARGER_SWITCH": True})
+            update_battery_hardware(bid, {"CHARGER_SWITCH": True})
             time.sleep(5)
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
-            update_battery_status(bid, {"CHARGER_SWITCH": False})
+            update_battery_hardware(bid, {"CHARGER_SWITCH": False})
 
             voltage, current, *_ = measure_from_serial(ser)
             if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
@@ -266,10 +266,10 @@ def do_discharge_step(client, bid, ser):
 
         while voltage > 3.02:
             client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
-            update_battery_status(bid, {"DISCHARGER_SWITCH": True})     # .js function vegett kell
+            update_battery_hardware(bid, {"DISCHARGER_SWITCH": True})     # .js function vegett kell
             time.sleep(5)
             client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
-            update_battery_status(bid, {"DISCHARGER_SWITCH": False})    # .js function vegett kell
+            update_battery_hardware(bid, {"DISCHARGER_SWITCH": False})    # .js function vegett kell
 
             voltage, current, *_ = measure_from_serial(ser)
             if voltage:
@@ -380,6 +380,7 @@ def rotate_ocr_motor(client):
         cell_id = get_active_cell_id()
         if cell_id:
             log_to_appwrite(f"✅ Cell detected after rotation attempt {attempt + 1}")
+            update_battery_status(cell_id, {"rotate_attempts": {attempt + 1}})
             break
     else:
         log_to_appwrite("❌ No cell detected after max OCR rotation attempts")
@@ -516,12 +517,7 @@ def main():
                 try:
                     doc_active = get_setting("ACTIVE_CELL_ID")
                     if doc_active:
-                        databases.update_document(
-                            database_id=DATABASE_ID,
-                            collection_id=HARDWARE_FLAGS_COLLECTION,
-                            document_id=doc_active["$id"],
-                            data={"setting_data": None}
-                        )
+                        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, doc_active["$id"], {"setting_data": None})
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
