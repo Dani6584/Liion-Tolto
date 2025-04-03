@@ -225,19 +225,55 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
     log_to_appwrite("Voltage measurement: ✅")
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def do_charge_step(client, bid, ser):
     if bid.get("operation") == 0:
-        log_to_appwrite("⚡ Charging started")
+        log_to_appwrite("⚡ Charge started")
 
+        # Üresjárás (I = 0)
         voltage, current, *_ = measure_from_serial(ser)
         if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
         while voltage < 4.18:
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
             update_battery_status(bid, {"CHARGER_SWITCH": True})
-
             time.sleep(5)
-
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
             update_battery_status(bid, {"CHARGER_SWITCH": False})
 
@@ -245,10 +281,10 @@ def do_charge_step(client, bid, ser):
             if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
             try:
-                ocv_entry = databases.list_documents( DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
+                ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
                 ocv = ocv_entry.get("voltage")
 
-                if ocv and current and voltage:
+                if ocv and voltage and current:
                     resistance = round(abs((ocv - voltage) / current), 3)
                     update_battery_status(bid, {"belso_ellenallas": resistance})
                     log_to_appwrite(f"🧮 Estimated Internal Resistance: {resistance} Ω")
@@ -258,53 +294,36 @@ def do_charge_step(client, bid, ser):
         update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
-    log_to_appwrite("🔋 Discharge started")
-    """
-    Discharge step:
-    - First measure OCV with open_circuit=True
-    - Then turn on discharge coil
-    - Then measure under load with open_circuit=False
-    - We do NOT use 'mode' here, only for charge step.
-    """
-    discharge_mode = get_discharge_switch_mode()
+    if bid.get("operation") == 0:
+        log_to_appwrite("🔋 Discharge started")
 
-    voltage_oc, *_ = measure_from_serial(ser)
-    if voltage_oc:
-        save_measurement_to_appwrite(
-            DISCHARGE_COLLECTION,
-            battery_id=bid,
-            voltage=voltage_oc,
-            current=None,
-            open_circuit=True
-        )
+        # Üresjárás (I = 0)
+        voltage, *_ = measure_from_serial(ser)
+        if voltage: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current=None, open_circuit=True)
 
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
-    time.sleep(2)
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
+        while voltage > 3.02:
+            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
+            update_battery_status(bid, {"DISCHARGER_SWITCH": True})     # .js function vegett kell
+            time.sleep(5)
+            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
+            update_battery_status(bid, {"DISCHARGER_SWITCH": False})    # .js function vegett kell
 
-    voltage_load, current_load, *_ = measure_from_serial(ser)
-    if voltage_load:
-        save_measurement_to_appwrite(
-            DISCHARGE_COLLECTION,
-            battery_id=bid,
-            voltage=voltage_load,
-            current=current_load,
-            open_circuit=False
-        )
+            voltage, current, *_ = measure_from_serial(ser)
+            if voltage:
+                save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False)
 
-    try:
-        logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
-        ocv = next((entry.get("voltage") for entry in logs if entry.get("open_circuit")), None)
-        under_load = next((entry.get("voltage") for entry in logs if not entry.get("open_circuit")), None)
-        current_val = next((entry.get("dischargecurrent") for entry in logs if not entry.get("open_circuit")), None)
-        if ocv and under_load and current_val:
-            resistance = round((ocv - under_load) / current_val, 3)
-            update_battery_status(bid, {"belso_ellenallas": resistance})
-            log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
-    except Exception as e:
-        log_to_appwrite(f"⚠️ Failed to estimate resistance: {e}")
+            try:
+                ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
+                ocv = ocv_entry.get("voltage")
+                
+                if ocv and voltage and current:
+                    resistance = round((ocv - voltage) / current, 3)
+                    update_battery_status(bid, {"belso_ellenallas": resistance})
+                    log_to_appwrite(f"🧮 Estimated Internal Resistance: {resistance} Ω")
+            except Exception as e:
+                log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
 
-    update_battery_status(bid, {"operation": 1})
+        update_battery_status(bid, {"operation": 1})
 
 def do_recharge_step(client, bid, ser):
     log_to_appwrite("🔁 Recharge started")
