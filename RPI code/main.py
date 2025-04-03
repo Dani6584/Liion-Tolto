@@ -225,43 +225,6 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
     log_to_appwrite("Voltage measurement: ✅")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def do_charge_step(client, bid, ser):
     if bid.get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
@@ -325,14 +288,76 @@ def do_discharge_step(client, bid, ser):
 
         update_battery_status(bid, {"operation": 1})
 
-def do_recharge_step(client, bid, ser):
-    log_to_appwrite("🔁 Recharge started")
 
-    voltage, current, *_ = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+def do_capacity_calculation(bid):
+    bat = get_battery_by_id(bid)
+    charge = bat.get("chargecapacity") or 0
+    discharge = bat.get("dischargecapacity") or 0
+    measured = discharge or 0
+    if not measured:
+        try:
+            logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
+            measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
+            measured = round(measured / 3600, 2)
+        except Exception as e:
+            log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
+    
+    if not charge:
+        try:
+            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
+            charge = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            charge = round(charge / 3600, 2)
+            update_battery_status(bid, {"chargecapacity": charge})
+            log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
+        except Exception as e:
+            log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
+    
+    quality = "Jó" if measured >= 1800 else "Rossz"
+    status_next = 7 if quality == "Jó" else 9
+    log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
+    update_battery_status(bid, {"status": status_next, "operation": 0, "recharge_vege": datetime.now().isoformat(), "measured_capacity": measured, "allapot": quality})
 
-    update_battery_status(bid, {"operation": 1})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def do_output_step(client, bid, good=True):
     log_to_appwrite(f"📦 Ejecting cell: {bid}")
@@ -476,51 +501,12 @@ def main():
             elif status == 4: # Merítés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_discharge_step(client, cell_id, ser)
-                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
             
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_recharge_step(client, cell_id, ser)
-                
-                bat = get_battery_by_id(cell_id)
-                charge = bat.get("chargecapacity") or 0
-                discharge = bat.get("dischargecapacity") or 0
-                measured = discharge or 0
-                if not measured:
-                    try:
-                        logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [cell_id])]).get("documents", [])
-                        measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
-                        measured = round(measured / 3600, 2)
-                    except Exception as e:
-                        log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
-                if not charge:
-                    try:
-                        logs = databases.list_documents(
-                            database_id=DATABASE_ID,
-                            collection_id=CHARGE_COLLECTION,
-                            queries=[Query.equal("battery", [cell_id])]
-                        ).get("documents", [])
-                        charge = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-                        charge = round(charge / 3600, 2)
-                        update_battery_status(cell_id, {"chargecapacity": charge})
-                        log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
-                    except Exception as e:
-                        log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
-                    except Exception as e:
-                        log_to_appwrite(f"❌ Capacity estimation failed: {e}")
-                
-                quality = "Jó" if measured >= 1800 else "Rossz"
-                status_next = 7 if quality == "Jó" else 9
-                log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
-                
-                update_battery_status(cell_id, {
-                    "status": status_next,
-                    "operation": 0,
-                    "recharge_kezdes": datetime.now().isoformat(),
-                    "recharge_vege": datetime.now().isoformat(),
-                    "measured_capacity": measured,
-                    "allapot": quality
-                })
+                do_charge_step(client, cell_id, ser)
+                do_capacity_calculation(cell_id)
             
             elif status in (7, 9): # Jó vagy Rossz
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
