@@ -124,6 +124,11 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"update_battery_status error: {e}")
 
+def update_battery_hardware(bid, data):
+    try:
+        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, bid, data=data)
+    except Exception as e:
+        log_to_appwrite(f"update_battery_hardware error: {e}")
 
 def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False):
     try:
@@ -221,33 +226,36 @@ def do_voltage_measure_step(ser, bid):
     log_to_appwrite("Voltage measurement: ✅")
 
 def do_charge_step(client, bid, ser):
-    log_to_appwrite("⚡ Charging started")
-    voltage, current, *_ = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
-    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
-    time.sleep(1)
-    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+    if bid.get("operation") == 0:
+        log_to_appwrite("⚡ Charging started")
 
-    voltage, current, *_ = measure_from_serial(ser)
-    if voltage:
-        save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+        voltage, current, *_ = measure_from_serial(ser)
+        if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
-    try:
-        ocv_entry = databases.list_documents(
-            database_id=DATABASE_ID,
-            collection_id=DISCHARGE_COLLECTION,
-            queries=[Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]
-        ).get("documents", [])[0]
-        ocv = ocv_entry.get("voltage")
-        if ocv and current and voltage:
-            resistance = round((ocv - voltage) / current, 3)
-            update_battery_status(bid, {"belso_ellenallas": resistance})
-            log_to_appwrite(f"🧮 Internal resistance estimated: {resistance} Ω")
-    except Exception as e:
-        log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
+        while voltage < 4.18:
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
+            update_battery_status(bid, {"CHARGER_SWITCH": True})
 
-    update_battery_status(bid, {"operation": 1})
+            time.sleep(5)
+
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+            update_battery_status(bid, {"CHARGER_SWITCH": False})
+
+            voltage, current, *_ = measure_from_serial(ser)
+            if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+
+            try:
+                ocv_entry = databases.list_documents( DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
+                ocv = ocv_entry.get("voltage")
+
+                if ocv and current and voltage:
+                    resistance = round(abs((ocv - voltage) / current), 3)
+                    update_battery_status(bid, {"belso_ellenallas": resistance})
+                    log_to_appwrite(f"🧮 Estimated Internal Resistance: {resistance} Ω")
+            except Exception as e:
+                log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
+
+        update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
     log_to_appwrite("🔋 Discharge started")
