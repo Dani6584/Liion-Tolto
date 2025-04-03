@@ -285,11 +285,7 @@ def do_discharge_step(client, bid, ser):
         )
 
     try:
-        logs = databases.list_documents(
-            database_id=DATABASE_ID,
-            collection_id=DISCHARGE_COLLECTION,
-            queries=[Query.equal("battery", [bid])]
-        ).get("documents", [])
+        logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
         ocv = next((entry.get("voltage") for entry in logs if entry.get("open_circuit")), None)
         under_load = next((entry.get("voltage") for entry in logs if not entry.get("open_circuit")), None)
         current_val = next((entry.get("dischargecurrent") for entry in logs if not entry.get("open_circuit")), None)
@@ -465,11 +461,7 @@ def main():
                 measured = discharge or 0
                 if not measured:
                     try:
-                        logs = databases.list_documents(
-                            database_id=DATABASE_ID,
-                            collection_id=DISCHARGE_COLLECTION,
-                            queries=[Query.equal("battery", [cell_id])]
-                        ).get("documents", [])
+                        logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [cell_id])]).get("documents", [])
                         measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
                         measured = round(measured / 3600, 2)
                     except Exception as e:
@@ -489,9 +481,11 @@ def main():
                         log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
                     except Exception as e:
                         log_to_appwrite(f"❌ Capacity estimation failed: {e}")
+                
                 quality = "Jó" if measured >= 1800 else "Rossz"
                 status_next = 7 if quality == "Jó" else 9
                 log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
+                
                 update_battery_status(cell_id, {
                     "status": status_next,
                     "operation": 0,
