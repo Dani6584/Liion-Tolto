@@ -226,7 +226,7 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
     log_to_appwrite("Voltage measurement: ✅")
 
-def do_charge_step(client, bid, ser, status):
+def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
     if bid.get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
@@ -257,7 +257,7 @@ def do_charge_step(client, bid, ser, status):
 
         update_battery_status(bid, {"operation": 1})
 
-def do_discharge_step(client, bid, ser):
+def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
     if bid.get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
 
