@@ -233,6 +233,11 @@ def do_loading_step(client, bid):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     update_battery_status(bid, {"operation": 1})
 
+def do_loading_step(client):
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 1)
+    time.sleep(2)
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+
 def do_voltage_measure_step(ser, bid):
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
@@ -391,8 +396,8 @@ def do_capacity_calculation(bid):
             update_battery_status(bid, {"discharge_capacity_percentage": PmAh})
 
             # Akkumulátorcella besorolása | jó vagy rossz
-            quality = "Jó" if mAh >= (refmAh * bathard.get("REFERENCE_THRESHOLD")) else "Rossz"
-            status_next = 7 if quality == "Jó" else 9
+            quality = "jo" if mAh >= (refmAh * bathard.get("REFERENCE_THRESHOLD")) else "rossz"
+            status_next = 7 if quality == "jo" else 9
             update_battery_status(bid, {"status": status_next, "operation": 0, "allapot": quality})
 
         except Exception as e:
@@ -473,7 +478,7 @@ def fail_active_cell():
     try:
         doc = get_setting("ACTIVE_CELL_ID")
         if doc and doc.get("setting_data"):
-            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "allapot": "Hibás indulás"})
+            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "allapot": "rossz"}) #"allapot": "Hibás indulás"
             log_to_appwrite("❌ Marked active cell as failed on startup")
     except Exception as e:
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
@@ -485,6 +490,8 @@ def main():
                 f.write(datetime.now().isoformat())
         except Exception as e:
             log_to_appwrite(f"⚠️ Failed to ping watchdog: {e}")
+
+    # Kapcsolatok létesítése
     log_to_appwrite("🚀 MAIN STARTED")
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
     ser = open_serial_port()
@@ -505,6 +512,10 @@ def main():
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
     log_to_appwrite("🧹 All Modbus outputs reset")
+
+    # Ki kell tisztitani a Hardware_Flags-et
+    log_to_appwrite("🧹 Hardware_Flags cleared")
+
     fail_active_cell()
 
     try:
@@ -513,7 +524,7 @@ def main():
             log_to_appwrite("🔍 Checking for active cell...")
             cell_id = get_active_cell_id()
             if not cell_id:
-
+                # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
                 coils = client.read_coils(MODBUS_INPUT_SENSOR)
                 if not coils.isError():
                     if len(coils.bits) > 0 and not coils.bits[0]:
@@ -545,7 +556,8 @@ def main():
             # Status-ok kezelése
             current_position = STATUS_TO_POSITION[bat.get("status")]
 
-            if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
+            if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha betöltőrészben van és más a status, akkor helyére küldöm
+                do_loading_step(client)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
 
             if status == 1: # Betöltés
