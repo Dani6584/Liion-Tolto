@@ -36,7 +36,9 @@ BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
 
-SENSOR_COIL_ADDRESS = 8
+# Modbus
+SENSOR_COIL_ADDRESS = 8 # Lepetesnel hasznalt szenzor
+MODBUS_INPUT_SENSOR = 9 #Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
 MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -44,7 +46,20 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 MODBUS_OUTPUT_DCMOTOR = 6
-MODBUS_INPUT_SENSOR = 9
+
+# Hardware_Flags
+FORCE_PROGRESS = "67e978a400033ff184cf"
+TEST_MODE = "67e96f70002ac63bf054"
+RPI_MESSAGE = "67dfc91e003b95ec25dd"
+ACTIVE_CELL_ID = "67df14d30029fd472f78"
+ERROR_MSG = "67ded78000126b96814e"
+SYSTEM_BUSY = "67ded77700122936b58d"
+OCR_LAST = "67ded770000ab7e4ea08"
+OCR_ACTIVE = "67ded75c002fdd6f4d2d"
+ROTATE_CELL = "67debe6f0015e7f39e73"
+DISCHARGE_SWITCH = "67deab5a0032c611045d"
+CHARGER_SWITCH = "67dea772003c551fc53b"
+REFERENCE_THRESHOLD = "67de7f1300149699e3ea"
 
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 
@@ -125,9 +140,9 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"update_battery_status error: {e}")
 
-def update_battery_hardware(bid, data):
+def update_battery_hardware(hardwarename, data):
     try:
-        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, bid, data=data)
+        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, hardwarename, data=data)
     except Exception as e:
         log_to_appwrite(f"update_battery_hardware error: {e}")
 
@@ -227,31 +242,38 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
     log_to_appwrite("Voltage measurement: ✅")
 
-def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
+def do_charge_step(client, bid, ser, status):
     if bid.get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
-        # Üresjárás (I = 0)
-        voltage, current, *_ = measure_from_serial(ser)
-        if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
+        # DISCHARGE_SWITCH ellenőrzése és kapcsolása
+        dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+        dischargestate = False if dischargestate else dischargestate
+        update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+        
+        # Toltes kezdetekori ertek
+        ocv, *_ = measure_from_serial(ser)
+        if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
-        while voltage < 4.2:
-            
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
-            update_battery_hardware(bid, {"CHARGER_SWITCH": True})
+        while ocv < 4.18:
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
             voltage, current, *_ = measure_from_serial(ser)
             save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
 
             time.sleep(30)
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
-            update_battery_hardware(bid, {"CHARGER_SWITCH": False})
+
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
             time.sleep(5)
-            # OCV
-            voltage, current, *_ = measure_from_serial(ser)
-            if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, 0, True, status)
-
+            
+            ocv, *_ = measure_from_serial(ser)
+            if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
             '''
             try:
@@ -270,29 +292,38 @@ def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_
 def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
     if bid.get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
-
-        # Üresjárás (I = 0)
-        voltage, *_ = measure_from_serial(ser)
-        if voltage: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current=None, open_circuit=True)
+        
+        # DISCHARGE_SWITCH ellenőrzése és kapcsolása
+        dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+        dischargestate = True if not dischargestate else dischargestate
+        update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+        
+        # Merites kezdetekori ertek
+        ocv, *_ = measure_from_serial(ser)
+        if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
 
         while ocv > 3.02:
-            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
-            update_battery_hardware(bid, {"DISCHARGER_SWITCH": True})     # .js function vegett kell
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
             voltage, current, *_ = measure_from_serial(ser)
-            save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+            save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False)
 
             time.sleep(30)
 
-            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
-            update_battery_hardware(bid, {"DISCHARGER_SWITCH": False})    # .js function vegett kell
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
-            # OCV 
-            # TODO: OCV ERTEK GRAFIKON WEBOLDAL
             time.sleep(5)
-            ocv, current, *_ = measure_from_serial(ser)
-            if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, current, True)
             
+            ocv, *_ = measure_from_serial(ser)
+            if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
+            
+
+            # TODO: OCV ERTEK GRAFIKON WEBOLDAL
             '''
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
@@ -455,6 +486,7 @@ def main():
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
 
+    # Modbus Output-ok törlése
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
@@ -462,7 +494,6 @@ def main():
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
-    
     log_to_appwrite("🧹 All Modbus outputs reset")
     fail_active_cell()
 
@@ -531,10 +562,10 @@ def main():
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_charge_step(client, cell_id, ser, status)
-                
+                do_capacity_calculation(cell_id)
             
             elif status in (7, 9): # Jó vagy Rossz
-                do_capacity_calculation(cell_id)
+                
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_output_step(client, cell_id, good=(status == 7))
                 
