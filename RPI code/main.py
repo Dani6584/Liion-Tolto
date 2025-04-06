@@ -30,6 +30,7 @@ HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
 BATTERY_COLLECTION = "67f279860016263782ae"
+REFERENCEBATTERY = "67d9b54d0005a8009bc2"
 
 # Serial & PLC config
 BAUD_RATE = 9600
@@ -343,25 +344,33 @@ def convert(a):
     dt = datetime.fromisoformat(a)
     return dt.hour + (dt.minute / 60)
 
+def reference_capacity_check(kod):
+    reftype = [doc.get("Type") for doc in databases.list_documents(DATABASE_ID, REFERENCEBATTERY).get("documents", [])]
+    for refkod in reftype:
+        if (kod == refkod):
+            return next((doc.get("Capacity") for doc in databases.list_documents(DATABASE_ID, REFERENCEBATTERY, [Query.equal("Type", kod)]).get("documents", [])))
+    return 2400
+
 def do_capacity_calculation(bid):
     bat = get_battery_by_id(bid)
-    bathard = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, bid)
+    refmAh = reference_capacity_check(kod=bat.get("leolvasottkod"))
+    bathard = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, REFERENCE_THRESHOLD).get("setting_data")
+
+    reference_capacity_check( kod=bat.get("leolvasottkod"))
 
     charge = bat.get("charge_capacity") or 0
     discharge = bat.get("discharge_capacity") or 0
     recharge = bat.get("recharge_capacity") or 0
 
-
-
     if not charge:
         try:
             logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", False), Query.equal("status", [3])]).get("documents", [])
             ido = abs(convert(bat.get("toltes_vege")) - convert(bat.get("toltes_kezdes")))
-            sum = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-            avg = round( sum / len(logs), 2)
+            osszeadva = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
             
-            mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
+            mAh = round(avg * ido * 1000, 2)
+            PmAh = round((mAh / refmAh) * 100)
 
             update_battery_status(bid, {"charge_capacity": mAh})
             update_battery_status(bid, {"charge_capacity_percentage": PmAh})
@@ -372,16 +381,17 @@ def do_capacity_calculation(bid):
         try:
             logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
             ido = abs(convert(bat.get("merites_vege")) - convert(bat.get("mnerites_kezdes")))
-            sum = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
-            avg = round( sum / len(logs), 2)
+            osszeadva = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
             
             mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
+            PmAh = round((mAh / refmAh) * 100)
 
             update_battery_status(bid, {"discharge_capacity": mAh})
             update_battery_status(bid, {"discharge_capacity_percentage": PmAh})
 
-            quality = "Jó" if mAh >= (bat.get("ideal_capacity") * bathard.get("REFERENCE_THRESHOLD")) else "Rossz"
+            # Akkumulátorcella besorolása | jó vagy rossz
+            quality = "Jó" if mAh >= (refmAh * bathard.get("REFERENCE_THRESHOLD")) else "Rossz"
             status_next = 7 if quality == "Jó" else 9
             update_battery_status(bid, {"status": status_next, "operation": 0, "allapot": quality})
 
@@ -392,11 +402,11 @@ def do_capacity_calculation(bid):
         try:
             logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("status", [5])]).get("documents", [])
             ido = abs(convert(bat.get("ujratoltes_vege")) - convert(bat.get("ujratoltes_kezdes")))
-            sum = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-            avg = round( sum / len(logs), 2)
+            osszeadva = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
             
             mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
+            PmAh = round((mAh / refmAh) * 100)
 
             update_battery_status(bid, {"recharge_capacity": mAh})
             update_battery_status(bid, {"recharge_capacity_percentage": PmAh})
@@ -537,8 +547,6 @@ def main():
 
             if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-
-            
 
             if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
