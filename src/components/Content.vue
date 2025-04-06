@@ -1,43 +1,79 @@
 <template>
 <div v-if="loaded" class="m-5">
+    <!--Általános-->
     <div class="bg-base-300 rounded-box p-5">
         <div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">
 
             <div class="col-span-1">
                 <div class = "t" v-if="feszultseg != undefined">{{ feszultseg }} V</div>
-                <div class = "t" v-else="feszultseg == undefined">Folyamatban</div>
+                <div class = "t dots" v-else="feszultseg == undefined"></div>
                 <div class = "d">Mért feszültség</div>
             </div>
-            
+
             <div class="col-span-1">
-                <div class = "t" v-if="m_kezdes != undefined">{{ datum(t_kezdes) }}</div>
-                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-                <div class = "d">Töltés idejének kezdete</div>
+                <div class = "t" v-if="belso_ellenallas != undefined">{{ belso_ellenallas }} Ω</div>
+                <div class = "t dots" v-else="belso_ellenallas == undefined"></div>
+                <div class = "d">Belső ellenállás</div>
             </div>
 
             <div class="col-span-1">
-                <div class = "t" v-if="m_vege != undefined">{{ datum(t_vege) }}</div>
-                <div class = "t" v-else="m_kezdes == undefined">Folyamatban</div>
-                <div class = "d">Töltés idejének vége</div>
+                <div class = "t" v-if="discharge_capacity != undefined">{{ discharge_capacity }} mAh</div>
+                <div class = "t dots" v-else="discharge_capacity == undefined"></div>
+                <div class = "d">Kapacitás</div>
             </div>
 
             <div class="col-span-1">
-                <div class = "t" v-if="t_kezdes != undefined">{{ datum(m_kezdes) }}</div>
-                <div class = "t" v-else="t_kezdes == undefined"> Folyamatban</div>
-                <div class = "d">Merítési idejének kezdete</div>
-            </div>
-
-            <div class="col-span-1">
-                <div class = "t" v-if="t_vege != undefined">{{ datum(m_vege) }}</div>
-                <div class = "t" v-else="t_vege == undefined">Folyamatban</div>
-                <div class = "d">Merítés idejének vége</div>
+                <div class = "t" v-if="discharge_capacity_percentage != undefined">{{ discharge_capacity_percentage }} %</div>
+                <div class = "t dots" v-else="discharge_capacity_percentage == undefined"></div>
+                <div class = "d">Kapacitás százalékban</div>
             </div>
 
             <div class="col-span-1">
                 <div class = "t" v-if="allapot == 'jo'">Jó</div>
                 <div class = "t" v-else-if="allapot == 'rossz'">Rossz</div>
-                <div class = "t" v-else>{{allapot}}</div>
+                <div class = "t dots" v-else></div>
                 <div class = "d">Cella állapota</div>
+            </div>
+        </div>
+    </div>
+
+    <!--Időintervallumok-->
+    <div class="bg-base-300 rounded-box p-5 mt-5">
+        <div class="grid lg:grid-cols-6 md:grid-cols-3 sm:grid-cols-1 gap-0 md:flex-wrap sm:flex-wrap">
+            <div class="col-span-1">
+                <div class = "t" v-if="toltes_kezdes != undefined">{{ datum(toltes_kezdes) }}</div>
+                <div class = "t dots" v-else="toltes_kezdes == undefined"></div>
+                <div class = "d">Töltés kezdete</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="toltes_vege != undefined">{{ datum(toltes_vege) }}</div>
+                <div class = "t dots" v-else="toltes_vege == undefined"></div>
+                <div class = "d">Töltés vége</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="merites_kezdes != undefined">{{ datum(merites_kezdes) }}</div>
+                <div class = "t dots" v-else="merites_kezdes == undefined"></div>
+                <div class = "d">Merítési kezdete</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="merites_vege != undefined">{{ datum(merites_vege) }}</div>
+                <div class = "t dots" v-else="merites_vege == undefined"></div>
+                <div class = "d">Merítés vége</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="ujratoltes_kezdes != undefined">{{ datum(ujratoltes_kezdes) }}</div>
+                <div class = "t dots" v-else="ujratoltes_kezdes == undefined"></div>
+                <div class = "d">Újratöltés kezdete</div>
+            </div>
+
+            <div class="col-span-1">
+                <div class = "t" v-if="ujratoltes_vege != undefined">{{ datum(ujratoltes_vege) }}</div>
+                <div class = "t dots" v-else="ujratoltes_vege == undefined"></div>
+                <div class = "d">Újratöltés vége</div>
             </div>
         </div>
     </div>
@@ -71,11 +107,18 @@ export default {
     data () {
         return {
             feszultseg: null,
-            m_kezdes: null,
-            m_vege: null,
-            t_kezdes: null,
-            t_vege: null,
+            belso_ellenallas: null,
+            discharge_capacity: null,
+            discharge_capacity_percentage: null,
             allapot: null,
+            
+            toltes_kezdes: null,
+            toltes_vege: null,
+            merites_kezdes: null,
+            merites_vege: null,
+            ujratoltes_kezdes: null,
+            ujratoltes_vege: null,
+
             k: null,
             loaded:false
         }
@@ -95,18 +138,24 @@ export default {
             
             const a = useFetchDataStore()
             this.feszultseg = a.feszultseg
-            this.m_kezdes = a.merites_kezdes
-            this.m_vege = a.merites_vege
-            this.t_kezdes = a.toltes_kezdes
-            this.t_vege = a.toltes_vege
+            this.belso_ellenallas = a.belso_ellenallas
+            this.discharge_capacity = a.discharge_capacity
+            this.discharge_capacity_percentage = a.discharge_capacity_percentage
             this.allapot = a.allapot
             
+            this.toltes_kezdes = a.toltes_kezdes
+            this.toltes_vege = a.toltes_vege
+            this.merites_kezdes = a.merites_kezdes
+            this.merites_vege = a.merites_vege
+            this.ujratoltes_kezdes = a.ujratoltes_kezdes
+            this.ujratoltes_vege = a.ujratoltes_vege
+        
             this.k = k
             this.loaded=true;
         },
         datum(a) {
             moment.locale('hu');
-            return moment.utc(a).format('hh:mm'); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            return moment.utc(a).format('hh:mm');
         }
     },
 }
@@ -129,5 +178,20 @@ export default {
     color: #c3c3c6;
     font-size: 0.875rem;
     font-family: "Inter", sans-serif;
+}
+.dots::after {
+  content: '';
+  display: inline-block;
+  width: 1em;
+  text-align: left;
+  animation: dots 10s infinite;
+}
+
+@keyframes dots {
+  0%   { content: ''; }
+  25%  { content: ''; }
+  50%  { content: '.'; }
+  75%  { content: '..'; }
+  100% { content: '...'; }
 }
 </style>
