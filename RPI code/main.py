@@ -513,9 +513,6 @@ def main():
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
     log_to_appwrite("🧹 All Modbus outputs reset")
 
-    # Ki kell tisztitani a Hardware_Flags-et
-    log_to_appwrite("🧹 Hardware_Flags cleared")
-
     fail_active_cell()
 
     try:
