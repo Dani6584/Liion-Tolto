@@ -39,7 +39,7 @@ PLC_PORT = 502
 
 # Modbus
 SENSOR_COIL_ADDRESS = 8 # Lepetesnel hasznalt szenzor
-MODBUS_INPUT_SENSOR = 9 #Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
+MODBUS_INPUT_SENSOR = 9 # Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
 MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -548,9 +548,10 @@ def main():
             current_position = STATUS_TO_POSITION[bat.get("status")]
             
             # Status-ok kezelése
-            if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha betöltőrészben van és más a status, akkor helyére küldöm
+            if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
                 do_loading_step(client)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(2)
 
             if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
