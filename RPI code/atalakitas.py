@@ -29,7 +29,7 @@ RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
 HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
-BATTERY_COLLECTION = "67a5b55b002eceac9c33"
+BATTERY_COLLECTION = "67f279860016263782ae"
 
 # Serial & PLC config
 BAUD_RATE = 9600
@@ -505,7 +505,9 @@ def main():
             elif status in (7, 9): # Jó vagy Rossz
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_output_step(client, cell_id, good=(status == 7))
-                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
+                
+                update_battery_status(cell_id, {"status": 0, "operation": 0})
+                log_to_appwrite("Kész cella, új betöltés jöhet")
 
                 try:
                     doc_active = get_setting("ACTIVE_CELL_ID")
