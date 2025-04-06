@@ -451,9 +451,9 @@ def rotate_ocr_motor(client):
                 data={
                     "status": 1,
                     "operation": 0,
-                    "leolvasottkod": "Ismeretlen cella",
+                    "leolvasottkod": "---",
                     "nyerskod": "---",
-                    "allapot": "Folyamatban",
+                    "allapot": "",
                     "ideal_capacity": "0",
                     "ideal_voltage": ""
                 }
@@ -521,7 +521,7 @@ def main():
     try:
         while True:
             ping_watchdog()
-            log_to_appwrite("🔍 Checking for active cell...")
+            log_to_appwrite("Retrieving Active Cell ID...")
             cell_id = get_active_cell_id()
             if not cell_id:
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
@@ -529,7 +529,7 @@ def main():
                 if not coils.isError():
                     if len(coils.bits) > 0 and not coils.bits[0]:
                         break
-                if  coils == 0:
+                if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
                     continue
@@ -537,6 +537,7 @@ def main():
                 rotate_ocr_motor(client)
                 time.sleep(3)
                 continue
+
             bat = get_battery_by_id(cell_id)
             log_to_appwrite(f"📦 Battery doc: {bat}")
             if not bat:
@@ -546,16 +547,15 @@ def main():
             
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
-            force_progress = get_force_progress()
-            log_to_appwrite(f"📊 Status: {status}, Operation: {operation}, FORCE_PROGRESS: {force_progress}")
+            force_progress = get_force_progress() #
+            log_to_appwrite(f"BatteryID: {cell_id}, Status: {status}, Operation: {operation}, FORCE_PROGRESS: {force_progress}")
             if operation == 1 and not force_progress:
                 time.sleep(2)
                 continue
-            log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
 
-            # Status-ok kezelése
             current_position = STATUS_TO_POSITION[bat.get("status")]
-
+            
+            # Status-ok kezelése
             if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha betöltőrészben van és más a status, akkor helyére küldöm
                 do_loading_step(client)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
@@ -599,6 +599,7 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
