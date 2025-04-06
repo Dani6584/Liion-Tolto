@@ -18,7 +18,7 @@ export default {
     mounted() {
         const a=useFetchDataStore()
 
-        this.PmAh = a.kapacitas_szazalek
+        this.PmAh = a.discharge_capacity_percentage
         console.log(this.PmAh)
         
         this.data.datasets[0].data = [this.PmAh, 100 - this.PmAh];

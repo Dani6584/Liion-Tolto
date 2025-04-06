@@ -67,20 +67,20 @@ export default async ({ req, res, log, error }) => {
                 ...(open_circuit !== null && { open_circuit }),
                 ...(chargeCurrent !== null && { chargecurrent: chargeCurrent }),
                 ...(belsoEllenallas !== null && { belso_ellenallas: belsoEllenallas }),
-                ...(latest.chargecapacity !== undefined && { chargecapacity: latest.chargecapacity }),
+                ...(latest.charge_capacity !== undefined && { charge_capacity: latest.charge_capacity }),
                 ...(battery.charging_started_at ? {} : { charging_started_at: new Date().toISOString() })
             });
 
             // kiszámoljuk a teljes töltési ciklus kapacitását (mAh)
             if (allChargeEntries.total >= 2) {
-                const firstCap = allChargeEntries.documents[0].chargecapacity;
-                const lastCap = allChargeEntries.documents[allChargeEntries.total - 1].chargecapacity;
+                const firstCap = allChargeEntries.documents[0].charge_capacity;
+                const lastCap = allChargeEntries.documents[allChargeEntries.total - 1].charge_capacity;
 
                 if (firstCap !== undefined && lastCap !== undefined) {
                     const measuredCapacity = lastCap - firstCap;
                     await databases.updateDocument(DB_ID, BATTERY_COLLECTION, battery.$id, {
-                        ...(battery.status === 3 ? { charge_measured_capacity: measuredCapacity } : {}),
-                        ...(battery.status === 5 ? { recharge_measured_capacity: measuredCapacity } : {})
+                        ...(battery.status === 3 ? { charge_capacity: measuredCapacity } : {}),
+                        ...(battery.status === 5 ? { recharge_capacity: measuredCapacity } : {})
                     });
                 }
             }

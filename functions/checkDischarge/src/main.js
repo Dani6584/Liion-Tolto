@@ -82,13 +82,13 @@ export default async ({ req, res, log, error }) => {
 
             // kapacitás kiszámítása a ciklusból mAh-ban
             if (allDischargeEntries.total >= 2) {
-                const firstCap = allDischargeEntries.documents[0].dischargecapacity;
-                const lastCap = allDischargeEntries.documents[allDischargeEntries.total - 1].dischargecapacity;
+                const firstCap = allDischargeEntries.documents[0].discharge_capacity;
+                const lastCap = allDischargeEntries.documents[allDischargeEntries.total - 1].discharge_capacity;
 
                 if (firstCap !== undefined && lastCap !== undefined) {
                     const measuredCapacity = firstCap - lastCap;
                     await databases.updateDocument(DB_ID, BATTERY_COLLECTION, battery.$id, {
-                        discharge_measured_capacity: measuredCapacity,
+                        discharge_capacity: measuredCapacity,
                         kapacitas_mAh: measuredCapacity
                     });
                 }

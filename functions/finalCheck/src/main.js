@@ -29,8 +29,8 @@ export default async ({ req, res, log, error }) => {
         const battery = cellRes.documents[0];
         const measured =
           battery.kapacitas_mAh ??
-          battery.recharge_measured_capacity ??
-          battery.discharge_measured_capacity ??
+          battery.recharge_capacity ??
+          battery.discharge_capacity ??
           null;
         const ideal = battery.ideal_capacity ?? 0;
     
@@ -63,7 +63,7 @@ export default async ({ req, res, log, error }) => {
         await databases.updateDocument(DB_ID, BATTERY_COLLECTION, battery.$id, {
           status: statusToSet,
           operation: 0,
-          kapacitas_szazalek:
+          discharge_capacity_percentage:
             ideal > 0 && measured ? Math.round((measured / ideal) * 100) : null,
           allapot: statusToSet === 7 ? "jó" : "rossz",
           allapot_uzenet: msg

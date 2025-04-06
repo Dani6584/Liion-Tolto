@@ -46,7 +46,7 @@ export default async ({ req, res, log, error }) => {
                 ...(open_circuit !== null && { open_circuit }),
                 ...(chargeCurrent !== null && { chargecurrent: chargeCurrent }),
                 ...(belsoEllenallas !== null && { belso_ellenallas: belsoEllenallas }),
-                ...(latest.chargecapacity !== undefined && { chargecapacity: latest.chargecapacity })
+                ...(latest.charge_capacity !== undefined && { charge_capacity: latest.charge_capacity })
             });
 
             if (!open_circuit || feszultseg === null) continue;

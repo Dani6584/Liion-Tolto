@@ -34,10 +34,10 @@ export const useFetchDataStore = defineStore('FetchData', {
     setData(data) {
         this.feszultseg = data.feszultseg
         this.belso_ellenallas = data.belso_ellenallas
+        this.discharge_capacity = data.discharge_capacity
         this.discharge_capacity_percentage = data.discharge_capacity
         this.allapot = data.allapot
-        this.kapacitas_szazalek = data.kapacitas_szazalek
-        console.log(this.belso_ellenallas)
+        
         this.toltes_kezdes = data.toltes_kezdes
         this.toltes_vege = data.toltes_vege
         this.merites_kezdes = data.merites_kezdes

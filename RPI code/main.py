@@ -124,8 +124,8 @@ def get_battery_by_id(bid):
             "$id": bid,
             "status": 1,
             "operation": 0,
-            "chargecapacity": 1900,
-            "dischargecapacity": 1850,
+            "charge_capacity": 1900,
+            "discharge_capacity": 1850,
             "measured_capacity": None,
             "allapot": None
         }
@@ -575,6 +575,7 @@ def main():
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_charge_step(client, cell_id, ser, status)
+                update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
             
             elif status in (7, 9): # Jó vagy Rossz
