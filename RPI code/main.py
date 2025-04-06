@@ -460,12 +460,7 @@ def rotate_ocr_motor(client):
             )
             doc_active = get_setting("ACTIVE_CELL_ID")
             if doc_active:
-                databases.update_document(
-                    database_id=DATABASE_ID,
-                    collection_id=HARDWARE_FLAGS_COLLECTION,
-                    document_id=doc_active["$id"],
-                    data={"setting_data": doc["$id"]}
-                )
+                databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, document_id=doc_active["$id"], data={"setting_data": doc["$id"]})
             log_to_appwrite(f"📌 Created UNKNOWN cell and set as active: {doc['$id']}")
         except Exception as e:
             log_to_appwrite(f"❌ Failed to create UNKNOWN cell: {e}")
