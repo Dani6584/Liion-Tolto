@@ -13,16 +13,18 @@ async function lekeres(docID, pinia = false) {
     _data = response;
     
     // Merítés collection
-    const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
+    const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.equal("open_circuit", false), Query.orderAsc("$createdAt")]);
     _fesz = MeritesResponse.documents.map(doc => doc.voltage);
     _idok = MeritesResponse.documents.map(doc => datum(doc.$createdAt));
     _mcurrent = MeritesResponse.documents.map(doc => doc.dischargecurrent);
     
     // Töltés collection
-    const ToltesResponse = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.orderAsc("$createdAt")]);
+    const ToltesResponse = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.equal("open_circuit", true), Query.orderAsc("$createdAt")]);
     _fesz2 = ToltesResponse.documents.map(doc => doc.voltage);
     _idok2 = ToltesResponse.documents.map(doc => datum(doc.$createdAt));
-    _tcurrent = ToltesResponse.documents.map(doc => doc.chargecurrent);
+
+    const ToltesResponse2 = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.equal("open_circuit", false), Query.orderAsc("$createdAt")]);
+    _tcurrent = ToltesResponse2.documents.map(doc => doc.chargecurrent);
 
     // Pinia
     const fetchData = new useFetchDataStore();

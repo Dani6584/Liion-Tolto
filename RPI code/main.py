@@ -259,8 +259,8 @@ def do_charge_step(client, bid, ser, status):
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
         # Toltes kezdetekori ertek
-        ocv, *_ = measure_from_serial(ser)
-        if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
+        #ocv, *_ = measure_from_serial(ser)
+        #if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
         while ocv < 4.18:
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
@@ -306,8 +306,8 @@ def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_S
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
         # Merites kezdetekori ertek
-        ocv, *_ = measure_from_serial(ser)
-        if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
+        #ocv, *_ = measure_from_serial(ser)
+        #if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
 
         while ocv > 3.02:
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
