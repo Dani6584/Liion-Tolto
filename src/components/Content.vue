@@ -104,6 +104,11 @@ export default {
         this.leker();
         setInterval(() => {this.leker()}, 5*60000);
     },
+    watch: { // leker() fuggvenyt lekeri ha router modositas tortenik
+        '$route'(to, from) {
+            this.leker();
+        }
+    },
     data () {
         return {
             feszultseg: null,
