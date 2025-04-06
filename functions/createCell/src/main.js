@@ -9,7 +9,7 @@ export default async ({ req, res, log, error }) => {
 
   const databases = new Databases(client);
   const DB_ID = "67a5b54c00004b1a93d7";
-  const BATTERY_COLLECTION = "67a5b55b002eceac9c33";
+  const BATTERY_COLLECTION = "67f279860016263782ae";
   const CHARGE_COLLECTION = "67d18e17000dc1b54f39";
   const DISCHARGE_COLLECTION = "67ac8901003b19f4ca35";
   const SETTINGS_COLLECTION = "67de7e600036fcfc5959";
