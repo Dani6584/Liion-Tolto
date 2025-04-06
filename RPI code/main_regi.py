@@ -29,7 +29,7 @@ RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
 HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
-BATTERY_COLLECTION = "67f279860016263782ae"
+BATTERY_COLLECTION = "67a5b55b002eceac9c33"
 
 # Serial & PLC config
 BAUD_RATE = 9600
@@ -130,7 +130,7 @@ def update_battery_hardware(bid, data):
     except Exception as e:
         log_to_appwrite(f"update_battery_hardware error: {e}")
 
-def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, status=None):
+def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False):
     try:
         payload = {
             "battery": battery_id,
@@ -140,7 +140,6 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
         if current:
             if collection_id == CHARGE_COLLECTION:
                 payload["chargecurrent"] = current
-                payload["status"] = status
             elif collection_id == DISCHARGE_COLLECTION:
                 payload["dischargecurrent"] = current
 
@@ -226,13 +225,13 @@ def do_voltage_measure_step(ser, bid):
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
     log_to_appwrite("Voltage measurement: ✅")
 
-def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
+def do_charge_step(client, bid, ser):
     if bid.get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
         # Üresjárás (I = 0)
         voltage, current, *_ = measure_from_serial(ser)
-        if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
+        if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
         while voltage < 4.18:
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
@@ -242,7 +241,7 @@ def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_
             update_battery_hardware(bid, {"CHARGER_SWITCH": False})
 
             voltage, current, *_ = measure_from_serial(ser)
-            if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
+            if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
 
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
@@ -257,7 +256,7 @@ def do_charge_step(client, bid, ser, status): # Toltes valtoztatasanal a CHARGE_
 
         update_battery_status(bid, {"operation": 1})
 
-def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
+def do_discharge_step(client, bid, ser):
     if bid.get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
 
@@ -290,67 +289,75 @@ def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_S
         update_battery_status(bid, {"operation": 1})
 
 
-def convert(a):
-    dt = datetime.fromisoformat(a)
-    return dt.hour + (dt.minute / 60)
-
 def do_capacity_calculation(bid):
     bat = get_battery_by_id(bid)
-    bathard = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, bid)
-
-    charge = bat.get("charge_capacity") or 0
-    discharge = bat.get("discharge_capacity") or 0
-    recharge = bat.get("recharge_capacity") or 0
-
-    if not charge:
-        try:
-            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("status", [3])]).get("documents", [])
-            ido = abs(convert(bat.get("toltes_vege")) - convert(bat.get("toltes_kezdes")))
-            sum = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-            avg = round( sum / len(logs), 2)
-            
-            mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
-
-            update_battery_status(bid, {"charge_capacity": mAh})
-            update_battery_status(bid, {"charge_capacity_percentage": PmAh})
-        except Exception as e:
-            log_to_appwrite(f"❌ Charge capacity esitmation failed: {e}")
-
-    if not discharge:
+    charge = bat.get("chargecapacity") or 0
+    discharge = bat.get("dischargecapacity") or 0
+    measured = discharge or 0
+    if not measured:
         try:
             logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
-            ido = abs(convert(bat.get("merites_vege")) - convert(bat.get("mnerites_kezdes")))
-            sum = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
-            avg = round( sum / len(logs), 2)
-            
-            mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
-
-            update_battery_status(bid, {"discharge_capacity": mAh})
-            update_battery_status(bid, {"discharge_capacity_percentage": PmAh})
-
-            quality = "Jó" if mAh >= (bat.get("ideal_capacity") * bathard.get("REFERENCE_THRESHOLD")) else "Rossz"
-            status_next = 7 if quality == "Jó" else 9
-            update_battery_status(bid, {"status": status_next, "operation": 0, "allapot": quality})
-
+            measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
+            measured = round(measured / 3600, 2)
         except Exception as e:
-            log_to_appwrite(f"❌ Discharge capacity esitmation failed: {e}")
-
-    if not recharge:
+            log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
+    
+    if not charge:
         try:
-            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("status", [5])]).get("documents", [])
-            ido = abs(convert(bat.get("ujratoltes_vege")) - convert(bat.get("ujratoltes_kezdes")))
-            sum = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-            avg = round( sum / len(logs), 2)
-            
-            mAh = avg * ido * 1000
-            PmAh = round((mAh / bat.get("ideal_capacity")) * 100)
-
-            update_battery_status(bid, {"recharge_capacity": mAh})
-            update_battery_status(bid, {"recharge_capacity_percentage": PmAh})
+            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
+            charge = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            charge = round(charge / 3600, 2)
+            update_battery_status(bid, {"chargecapacity": charge})
+            log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
         except Exception as e:
-            log_to_appwrite(f"❌ Recharge capacity esitmation failed: {e}")
+            log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
+    
+    quality = "Jó" if measured >= 1800 else "Rossz"
+    status_next = 7 if quality == "Jó" else 9
+    log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
+    update_battery_status(bid, {"status": status_next, "operation": 0, "recharge_vege": datetime.now().isoformat(), "measured_capacity": measured, "allapot": quality})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def do_output_step(client, bid, good=True):
     log_to_appwrite(f"📦 Ejecting cell: {bid}")
@@ -489,7 +496,7 @@ def main():
 
             elif status == 3: # Töltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_charge_step(client, cell_id, ser, status)
+                do_charge_step(client, cell_id, ser)
                 if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
 
             elif status == 4: # Merítés
@@ -499,15 +506,13 @@ def main():
             
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_charge_step(client, cell_id, ser, status)
+                do_charge_step(client, cell_id, ser)
                 do_capacity_calculation(cell_id)
             
             elif status in (7, 9): # Jó vagy Rossz
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 do_output_step(client, cell_id, good=(status == 7))
-                
-                update_battery_status(cell_id, {"status": 0, "operation": 0})
-                log_to_appwrite("Kész cella, új betöltés jöhet")
+                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
 
                 try:
                     doc_active = get_setting("ACTIVE_CELL_ID")
