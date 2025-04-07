@@ -556,36 +556,41 @@ def main():
             if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
                 do_loading_step_any(client)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(2)
+                time.sleep(3)
 
             if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
                 if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0})
 
             elif status == 2: # Feszültségmérés
+                time.sleep(2)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(3)
                 do_voltage_measure_step(ser, cell_id)
                 if operation == 1: update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
 
             elif status == 3: # Töltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(3)
                 do_charge_step(client, cell_id, ser, status)
                 if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
 
             elif status == 4: # Merítés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(3)
                 do_discharge_step(client, cell_id, ser)
                 if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
             
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(3)
                 do_charge_step(client, cell_id, ser, status)
                 update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
             
             elif status in (7, 9): # Jó vagy Rossz
-                
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                time.sleep(5)
                 do_output_step(client, cell_id, good=(status == 7))
                 
                 update_battery_status(cell_id, {"status": 0, "operation": 0})
