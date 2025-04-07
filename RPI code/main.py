@@ -216,7 +216,7 @@ def rotate_to_position(client, current, target):
     n = target - current
     jel = 0
 
-    for i in range(n):
+    for i in range(n, 0):
         client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
         time.sleep(0.3)
         
