@@ -263,7 +263,7 @@ def do_charge_step(client, bid, ser, status):
     if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
-        # DISCHARGE_SWITCH ellenőrzése és kapcsolása
+        # DISCHARGE_SWITCH ellenőrzése és kapcsolása    
         dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
         dischargestate = False if dischargestate else dischargestate
         update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
@@ -273,7 +273,7 @@ def do_charge_step(client, bid, ser, status):
         #ocv, *_ = measure_from_serial(ser)
         #if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
-        while ocv < 4.18:
+        while ocv < 4.18: #TODO:TOLTO
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
@@ -287,7 +287,7 @@ def do_charge_step(client, bid, ser, status):
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
-            time.sleep(5)
+            time.sleep(30)
             
             ocv, *_ = measure_from_serial(ser)
             if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
@@ -582,7 +582,7 @@ def main():
                 if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
                 time.sleep(2)
 
-            elif status == 2: # Feszültségmérés
+            elif status == 2: # Feszültségmérés #TODO: ugyanebbe a lyukba jon majd a toltes is
                 rotate_to_position(client, current, target)
                 time.sleep(2)
                 do_voltage_measure_step(ser, cell_id)
