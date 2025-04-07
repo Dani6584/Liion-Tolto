@@ -225,6 +225,7 @@ def rotate_to_position(client, current, target):
         if coils.bits[0] == True:
             jel += 1
             time.sleep(0.5)
+            log_to_appwrite(f"ERZEKELTE {jel}")
     
     time.sleep(0.05)
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
