@@ -233,7 +233,7 @@ def do_loading_step(client, bid):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     update_battery_status(bid, {"operation": 1})
 
-def do_loading_step(client):
+def do_loading_step_any(client):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 1)
     time.sleep(2)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
@@ -549,7 +549,7 @@ def main():
             
             # Status-ok kezelése
             if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
-                do_loading_step(client)
+                do_loading_step_any(client)
                 rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
                 time.sleep(2)
 
