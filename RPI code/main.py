@@ -488,7 +488,9 @@ def fail_active_cell():
     try:
         doc = get_setting("ACTIVE_CELL_ID")
         if doc and doc.get("setting_data"):
-            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "allapot": "rossz"}) #"allapot": "Hibás indulás"
+            battery = get_battery_by_id(doc.get("settings_data"))
+            pozicio = STATUS_TO_POSITION[battery.get("status")]
+            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "current": pozicio,"target": 6, "allapot": "rossz"}) #"allapot": "Hibás indulás"
             log_to_appwrite("❌ Marked active cell as failed on startup")
     except Exception as e:
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
@@ -575,7 +577,7 @@ def main():
             #if current == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
             #    do_loading_step_any(client)
             #    rotate_to_position(client, current, STATUS_TO_POSITION[status])
-            #    time.sleep(2)
+            #   time.sleep(2)
 
             if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
