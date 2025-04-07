@@ -519,7 +519,7 @@ def main():
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
                 coils = client.read_coils(MODBUS_INPUT_SENSOR)
                 if not coils.isError():
-                    if len(coils.bits) > 0 and not coils.bits[0]:
+                    if len(coils.bits) > 0:
                         log_to_appwrite("HALOOOO")
                         continue
                 if coils == 0:
