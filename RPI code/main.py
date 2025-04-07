@@ -240,8 +240,8 @@ def do_loading_step(client, bid):
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
         update_battery_status(bid, {"operation": 1})
     
-
 def do_loading_step_any(client):
+    log_to_appwrite(f"📦 Loading cell")
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
     time.sleep(2)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
@@ -256,9 +256,8 @@ def do_voltage_measure_step(ser, bid):
             update_battery_status(bid, {"status": 9, "operation": 0, "current_position": 2, "target_position": 6, "feszultsegjo": False, "toltes_kezdes": datetime.now().isoformat()})
         else:
             log_to_appwrite("Voltage measurement: ✅")
-            update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 3, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
+            update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 2, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
     
-
 def do_charge_step(client, bid, ser, status):
     if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
@@ -269,6 +268,14 @@ def do_charge_step(client, bid, ser, status):
         update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
+        if status == 3:
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+        elif status == 5:
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
+        time.sleep(3)
+
         # Toltes kezdetekori ertek
         #ocv, *_ = measure_from_serial(ser)
         #if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
@@ -277,6 +284,7 @@ def do_charge_step(client, bid, ser, status):
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            time.sleep(1)
 
             voltage, current, *_ = measure_from_serial(ser)
             save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
@@ -287,7 +295,7 @@ def do_charge_step(client, bid, ser, status):
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
 
-            time.sleep(30)
+            time.sleep(5)
             
             ocv, *_ = measure_from_serial(ser)
             if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
@@ -306,7 +314,7 @@ def do_charge_step(client, bid, ser, status):
             '''
         update_battery_status(bid, {"operation": 1})
 
-def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_SWITCH Erteket elsonek a bazisbol szedjem le, majd utana a megvaltoztatott erteket toltsem vissza, hogy mukodjon a .js function
+def do_discharge_step(client, bid, ser):
     if bid.get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
         
@@ -316,6 +324,9 @@ def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_S
         update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
+        update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+        client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+        time.sleep(3)
         # Merites kezdetekori ertek
         #ocv, *_ = measure_from_serial(ser)
         #if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
@@ -324,6 +335,7 @@ def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_S
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            time.sleep(1)
 
             voltage, current, *_ = measure_from_serial(ser)
             save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False)
@@ -338,9 +350,7 @@ def do_discharge_step(client, bid, ser): # Merites valtoztatasanal a DISCHARGE_S
             
             ocv, *_ = measure_from_serial(ser)
             if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
-            
 
-            # TODO: OCV ERTEK GRAFIKON WEBOLDAL
             '''
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
@@ -466,9 +476,9 @@ def rotate_ocr_motor(client):
                     "operation": 0,
                     "leolvasottkod": "---",
                     "nyerskod": "---",
-                    "allapot": "",
-                    "ideal_capacity": 0,
-                    "ideal_voltage": 0
+                    "rotate_attempts": max_attempts,
+                    "current_position": 0,
+                    "target_position": 1
                 }
             )
             doc_active = get_setting("ACTIVE_CELL_ID")
@@ -532,16 +542,10 @@ def main():
             cell_id = get_active_cell_id()
             if not cell_id:
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
-                coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
+                coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
                 log_to_appwrite(coils.bits[0])
                 while coils.bits[0] != True:
-                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
-                
-                #if not coils.isError():
-                #    if len(coils.bits) > 0  :
-                #        
-                #        log_to_appwrite("HALOOOO")
-                #        continue
+                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
@@ -566,7 +570,6 @@ def main():
                 time.sleep(2)
                 continue
 
-            #current_position = STATUS_TO_POSITION[bat.get("status")]
             current = bat.get("current_position")
             target = bat.get("target_position")
             feszultsegjo = bat.get("feszultsegjo")
@@ -574,35 +577,37 @@ def main():
             # Status-ok kezelése
             #if current == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
             #    do_loading_step_any(client)
-            #    rotate_to_position(client, current, STATUS_TO_POSITION[status])
-            #   time.sleep(2)
+            #    if (operation == 0):
+            #        rotate_to_position(client, current, STATUS_TO_POSITION[status])
+            #        update_battery_status(cell_id, {"current_position": })
+            #        time.sleep(3)
 
-            if status == 1: # Betöltés
+            if status == 1: # P1 - Betöltés
                 do_loading_step(client, cell_id)
                 if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
                 time.sleep(2)
 
-            elif status == 2: # Feszültségmérés #TODO: ugyanebbe a lyukba jon majd a toltes is
+            elif status == 2: # P2 - Feszültségmérés
                 rotate_to_position(client, current, target)
                 time.sleep(2)
                 do_voltage_measure_step(ser, cell_id)
                 time.sleep(2)
 
-            elif status == 3: # Töltés
-                rotate_to_position(client, current, target)
-                time.sleep(2)
+            elif status == 3: # P2 - Töltés
                 do_charge_step(client, cell_id, ser, status)
-                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "current_position": 3, "target_position": 4, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "current_position": 2, "target_position": 3, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
                 time.sleep(2)
 
             elif status == 4: # Merítés
                 rotate_to_position(client, current, target)
                 time.sleep(2)
                 do_discharge_step(client, cell_id, ser)
-                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 3, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 4, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
                 time.sleep(2)
             
             elif status == 5: # Újratöltés
+                rotate_to_position(client, current, target)
+                time.sleep(2)
                 do_charge_step(client, cell_id, ser, status)
                 update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
