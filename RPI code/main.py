@@ -215,22 +215,13 @@ def rotate_to_position(client, current_position, target_position):
     log_to_appwrite(f"Position: {current_position} → {target_position}")
 
     client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
-    time.sleep(1)
+    time.sleep(0.3)
     coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1  )
     log_to_appwrite(coils.bits[0])
     while coils.bits[0] != True:
         coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1  )
     
-
-
-    #while True:
-    #    coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-    #    if not coils.isError():
-    ##        if len(coils.bits) > 0 and not coils.bits[0]:
-    #            break
-
     time.sleep(0.05)
-
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
     log_to_appwrite(f"Position reached: {target_position}")
 
