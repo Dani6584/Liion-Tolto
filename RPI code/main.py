@@ -248,9 +248,10 @@ def do_voltage_measure_step(ser, bid):
         if voltage < 2.5:
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
             update_battery_status(bid, {"status": 9, "operation": 0, "current_position": 2, "target_position": 6, "feszultsegjo": False, "toltes_kezdes": datetime.now().isoformat()})
-
-    log_to_appwrite("Voltage measurement: ✅")
-    update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 3, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
+        else:
+            log_to_appwrite("Voltage measurement: ✅")
+            update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 3, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
+    
 
 def do_charge_step(client, bid, ser, status):
     if bid.get("operation") == 0:
@@ -628,7 +629,6 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
-                
                 
 
             time.sleep(1)
