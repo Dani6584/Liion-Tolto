@@ -620,7 +620,8 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
-            elif status == 9 and feszultsegjo == False:
+            
+            elif status == 9 and (feszultsegjo == False or feszultsegjo == None):
                 rotate_to_position(client, current, target)
                 time.sleep(5)
                 do_output_step(client, cell_id, good = False)
