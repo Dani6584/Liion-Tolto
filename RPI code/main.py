@@ -520,6 +520,7 @@ def main():
                 coils = client.read_coils(MODBUS_INPUT_SENSOR)
                 if not coils.isError():
                     if len(coils.bits) > 0 and not coils.bits[0]:
+                        log_to_appwrite("HALOOOO")
                         break
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
