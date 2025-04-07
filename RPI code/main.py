@@ -519,11 +519,14 @@ def main():
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
                 coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
                 log_to_appwrite(coils.bits[0])
-                if not coils.isError():
-                    if len(coils.bits) > 0  :
-                        
-                        log_to_appwrite("HALOOOO")
-                        continue
+                while coils.bits[0] != True:
+                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
+                
+                #if not coils.isError():
+                #    if len(coils.bits) > 0  :
+                #        
+                #        log_to_appwrite("HALOOOO")
+                #        continue
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
