@@ -233,13 +233,12 @@ def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
-    if bid.get("operation") == 0 {
+    if bid.get("operation") == 0:
         log_to_appwrite(f"📦 Loading cell: {bid}")
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
         time.sleep(2)
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
         update_battery_status(bid, {"operation": 1})
-    }
     
 
 def do_loading_step_any(client):
