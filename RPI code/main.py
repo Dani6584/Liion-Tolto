@@ -233,9 +233,7 @@ def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
-    op = bid.get("operation")
-    log_to_appwrite(type(op))
-    if op == 0:
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite(f"📦 Loading cell: {bid}")
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
         time.sleep(2)
@@ -262,7 +260,7 @@ def do_voltage_measure_step(ser, bid):
     
 
 def do_charge_step(client, bid, ser, status):
-    if bid.get("operation") == 0:
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
         # DISCHARGE_SWITCH ellenőrzése és kapcsolása
