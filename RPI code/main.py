@@ -230,11 +230,11 @@ def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
     time.sleep(2)
-    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, False)
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     update_battery_status(bid, {"operation": 1})
 
 def do_loading_step_any(client):
-    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 1)
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
     time.sleep(2)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
 
