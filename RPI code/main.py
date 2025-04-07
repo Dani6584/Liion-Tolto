@@ -211,21 +211,22 @@ def measure_from_serial(ser):
         return None, None, None, None, None, None
 
 # State functions
-def rotate_to_position(client, current_position, target_position):
-    log_to_appwrite(f"Position: {current_position} → {target_position}")
-    n = target_position - current_position
+def rotate_to_position(client, current, target):
+    log_to_appwrite(f"Position: {current} → {target}")
+    n = target - current
     jel = 0
+
     client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
     time.sleep(0.3)
-    coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1  )
+    coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
     log_to_appwrite(coils.bits[0])
-    while coils.bits[0] != True  and jel != n:
+    while coils.bits[0] != True and jel != n:
         coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-        jel = jel + 1
+        jel += 1
     
     time.sleep(0.05)
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
-    log_to_appwrite(f"Position reached: {target_position}")
+    log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
     log_to_appwrite(f"📦 Loading cell: {bid}")
@@ -245,9 +246,11 @@ def do_voltage_measure_step(ser, bid):
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
         if voltage < 2.5:
-            update_battery_status(bid, {"status": 9, "operation": 0})
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
+            update_battery_status(bid, {"status": 9, "operation": 0, "current_position": 2, "target_position": 6, "feszultsegjo": False, "toltes_kezdes": datetime.now().isoformat()})
+
     log_to_appwrite("Voltage measurement: ✅")
+    update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 3, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
 
 def do_charge_step(client, bid, ser, status):
     if bid.get("operation") == 0:
@@ -399,7 +402,9 @@ def do_capacity_calculation(bid):
             # Akkumulátorcella besorolása | jó vagy rossz
             quality = "jo" if mAh >= (refmAh * bathard.get("REFERENCE_THRESHOLD")) else "rossz"
             status_next = 7 if quality == "jo" else 9
-            update_battery_status(bid, {"status": status_next, "operation": 0, "allapot": quality})
+            position_next = 5 if quality == "jo" else 6
+
+            update_battery_status(bid, {"status": status_next, "operation": 0, "current_position": 4, "target_position": position_next, "toltes_kezdes": datetime.now().isoformat()})
 
         except Exception as e:
             log_to_appwrite(f"❌ Discharge capacity esitmation failed: {e}")
@@ -552,46 +557,49 @@ def main():
                 time.sleep(2)
                 continue
 
-            current_position = STATUS_TO_POSITION[bat.get("status")]
-            
+            #current_position = STATUS_TO_POSITION[bat.get("status")]
+            current = bat.get("current_position")
+            target = bat.get("target_position")
+            feszultsegjo = bat.get("feszultsegjo")
+
             # Status-ok kezelése
-            if current_position == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
-                do_loading_step_any(client)
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(3)
+            #if current == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
+            #    do_loading_step_any(client)
+            #    rotate_to_position(client, current, STATUS_TO_POSITION[status])
+            #    time.sleep(2)
 
             if status == 1: # Betöltés
                 do_loading_step(client, cell_id)
-                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0})
-
-            if status == 2: # Feszültségmérés
+                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
                 time.sleep(2)
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(3)
+
+            elif status == 2: # Feszültségmérés
+                rotate_to_position(client, current, target)
+                time.sleep(2)
                 do_voltage_measure_step(ser, cell_id)
-                if operation == 1: update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
+                time.sleep(2)
 
-            if status == 3: # Töltés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(3)
+            elif status == 3: # Töltés
+                rotate_to_position(client, current, target)
+                time.sleep(2)
                 do_charge_step(client, cell_id, ser, status)
-                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "current_position": 3, "target_position": 4, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+                time.sleep(2)
 
-            if status == 4: # Merítés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(3)
+            elif status == 4: # Merítés
+                rotate_to_position(client, current, target)
+                time.sleep(2)
                 do_discharge_step(client, cell_id, ser)
-                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 3, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
+                time.sleep(2)
             
-            if status == 5: # Újratöltés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                time.sleep(3)
+            elif status == 5: # Újratöltés
                 do_charge_step(client, cell_id, ser, status)
                 update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
             
-            if status in (7, 9): # Jó vagy Rossz
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+            elif status in (7, 9) and feszultsegjo == True: # Jó vagy Rossz
+                rotate_to_position(client, current, target)
                 time.sleep(5)
                 do_output_step(client, cell_id, good=(status == 7))
                 
@@ -605,6 +613,23 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+            elif status == 9 and feszultsegjo == False:
+                rotate_to_position(client, current, target)
+                time.sleep(5)
+                do_output_step(client, cell_id, good = False)
+
+                update_battery_status(cell_id, {"status": 0, "operation": 0})
+                log_to_appwrite("Kész cella, új betöltés jöhet")
+
+                try:
+                    doc_active = get_setting("ACTIVE_CELL_ID")
+                    if doc_active:
+                        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, doc_active["$id"], {"setting_data": None})
+                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
+                except Exception as e:
+                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+                
+                
 
             time.sleep(1)
     except KeyboardInterrupt:
