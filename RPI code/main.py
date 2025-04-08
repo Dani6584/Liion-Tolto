@@ -220,7 +220,7 @@ def rotate_to_position(client, current, target):
         if (jel != target):
             time.sleep(5)
             client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
-            time.sleep(0.25)
+            time.sleep(1)
         
             coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
             while coils.bits[0] != True:
@@ -228,7 +228,7 @@ def rotate_to_position(client, current, target):
         
             client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
 
-            jel += 1
+        jel += 1
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
