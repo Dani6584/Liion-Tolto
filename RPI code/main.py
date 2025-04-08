@@ -222,6 +222,7 @@ def rotate_to_position(client, current, target):
         while (client.read_coils(SENSOR_COIL_ADDRESS, count=1)).bits[0] != True:
             client.read_coils(SENSOR_COIL_ADDRESS, count=1)
         
+        time.sleep(0.1)
         client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
         time.sleep(3)
 
