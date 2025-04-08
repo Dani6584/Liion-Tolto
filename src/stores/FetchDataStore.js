@@ -35,7 +35,7 @@ export const useFetchDataStore = defineStore('FetchData', {
         this.feszultseg = data.feszultseg
         this.belso_ellenallas = data.belso_ellenallas
         this.discharge_capacity = data.discharge_capacity
-        this.discharge_capacity_percentage = data.discharge_capacity
+        this.discharge_capacity_percentage = data.discharge_capacity_percentage
         this.allapot = data.allapot
         
         this.toltes_kezdes = data.toltes_kezdes
