@@ -545,6 +545,7 @@ def main():
             if not cell_id:
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
                 coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
+                log_to_appwrite(coils)
                 log_to_appwrite(coils.bits[0])
 
                 while coils.bits[0] != True:
