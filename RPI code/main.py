@@ -38,7 +38,7 @@ PLC_IP = "192.168.1.5"
 PLC_PORT = 502
 
 # Modbus
-SENSOR_COIL_ADDRESS = 10 # Lepetesnel hasznalt szenzor
+SENSOR_COIL_ADDRESS = 8 # Lepetesnel hasznalt szenzor
 MODBUS_INPUT_SENSOR = 9 # Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
 MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
