@@ -544,13 +544,13 @@ def main():
             cell_id = get_active_cell_id()
             if not cell_id:
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
-                coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
-                log_to_appwrite(coils)
+                coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
                 log_to_appwrite(coils.bits[0])
 
                 while coils.bits[0] != True:
-                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1  )
-                    log_to_appwrite(coils)
+                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                    log_to_appwrite(coils.bits[0])
+                    time.sleep(1)
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
