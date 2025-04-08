@@ -227,7 +227,6 @@ def rotate_to_position(client, current, target):
         client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
 
         jel += 1
-        log_to_appwrite(f"n: {n}, jel: {jel}")
         time.sleep(1)
     log_to_appwrite(f"Position reached: {target}")
 
