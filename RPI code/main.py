@@ -591,7 +591,7 @@ def main():
             target = bat.get("target_position")
             feszultsegjo = bat.get("feszultsegjo")
 
-            do_loading_step(client, cell_id, current, status, operation) # Ez arra van hogy a félbeszakított cellát visszaküldje a régi helyzetébe
+            do_loading_step(client, cell_id, current, status, operation) # P1 - Betöltés után
 
             if status == 2: # P2 - Feszültségmérés
                 rotate_to_position(client, current, target)
