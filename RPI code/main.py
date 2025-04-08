@@ -242,6 +242,11 @@ def do_loading_step_any(client):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
 
 def do_voltage_measure_step(ser, bid):
+    update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
+
+    time.sleep(2)
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
     log_to_appwrite(voltage)
