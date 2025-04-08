@@ -529,7 +529,7 @@ def main():
     log_to_appwrite("🧹 All Modbus outputs reset")
 
     fail_active_cell()
-
+#pull test
     try:
         while True:
             ping_watchdog()
