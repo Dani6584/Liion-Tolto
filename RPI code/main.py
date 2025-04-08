@@ -228,7 +228,7 @@ def rotate_to_position(client, current, target):
         time.sleep(3)
     log_to_appwrite(f"Position reached: {target}")
 
-def do_loading_step(client, bid, current, status):
+def do_loading_step(client, bid, current, status, operation):
     if current != 0 and status != 1:
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
         time.sleep(2)
@@ -236,13 +236,14 @@ def do_loading_step(client, bid, current, status):
         time.sleep(1)
         rotate_to_position(client, 1, current)
 
-    elif current == 0 and status == 1:
-        if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
-            log_to_appwrite(f"📦 Loading cell: {bid}")
-            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
-            time.sleep(2)
-            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-            update_battery_status(bid, {"operation": 1})
+    if current == 0 and status == 1 and operation == 0:
+        log_to_appwrite(f"📦 Loading cell: {bid}")
+        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
+        time.sleep(2)
+        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+        update_battery_status(bid, {"operation": 1})
+        if operation == 1: update_battery_status(bid, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
+        time.sleep(2)
     
 def do_loading_step_any(client):
     log_to_appwrite(f"📦 Loading cell")
@@ -578,10 +579,10 @@ def main():
             target = bat.get("target_position")
             feszultsegjo = bat.get("feszultsegjo")
 
-            do_loading_step(client, cell_id, current, status) # Ez arra van hogy a félbeszakított cellát visszaküldje a régi helyzetébe
+            do_loading_step(client, cell_id, current, status, operation) # Ez arra van hogy a félbeszakított cellát visszaküldje a régi helyzetébe
 
             if status == 1: # P1 - Betöltés
-                do_loading_step(client, cell_id, current, status)
+                do_loading_step(client, cell_id, current, status, operation)
                 if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
                 time.sleep(2)
 
