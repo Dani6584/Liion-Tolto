@@ -214,20 +214,21 @@ def measure_from_serial(ser):
 def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position: {current} → {target}")
     n = target - current
-    jel = 0
+    jel = current
 
     for i in range(n):
-        client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
-        time.sleep(0.25)
+        if (jel != target):
+            time.sleep(5)
+            client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
+            time.sleep(0.25)
         
-        coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-        while coils.bits[0] != True:
             coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
+            while coils.bits[0] != True:
+                coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
         
-        client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
+            client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
 
-        jel += 1
-        time.sleep(1)
+            jel += 1
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
