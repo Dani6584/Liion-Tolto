@@ -241,7 +241,7 @@ def do_loading_step_any(client):
     time.sleep(2)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
 
-def do_voltage_measure_step(ser, bid):
+def do_voltage_measure_step(ser, bid, client):
     update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
@@ -594,7 +594,7 @@ def main():
             elif status == 2: # P2 - Feszültségmérés
                 rotate_to_position(client, currentpos, target)
                 time.sleep(2)
-                do_voltage_measure_step(ser, cell_id)
+                do_voltage_measure_step(ser, cell_id, client)
                 time.sleep(2)
 
             elif status == 3: # P2 - Töltés
