@@ -211,9 +211,9 @@ def measure_from_serial(ser):
         return None, None, None, None, None, None
 
 # State functions
-def rotate_to_position(client, current, target):
-    log_to_appwrite(f"Position: {current} → {target}")
-    n = target - current
+def rotate_to_position(client, currentpos, target):
+    log_to_appwrite(f"Position: {currentpos} → {target}")
+    n = target - currentpos
 
     for i in range(n):
         client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
@@ -244,6 +244,7 @@ def do_loading_step_any(client):
 def do_voltage_measure_step(ser, bid):
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
+    log_to_appwrite(voltage)
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
         if voltage < 2.5:
@@ -493,7 +494,7 @@ def fail_active_cell():
         if doc and doc.get("setting_data"):
             battery = get_battery_by_id(doc.get("settings_data"))
             pozicio = STATUS_TO_POSITION[battery.get("status")]
-            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "current": pozicio,"target": 6, "allapot": "rossz"}) #"allapot": "Hibás indulás"
+            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "current_position": pozicio,"target": 6, "allapot": "rossz"}) #"allapot": "Hibás indulás"
             log_to_appwrite("❌ Marked active cell as failed on startup")
     except Exception as e:
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
@@ -568,15 +569,15 @@ def main():
                 time.sleep(2)
                 continue
 
-            current = bat.get("current_position")
+            currentpos = bat.get("current_position")
             target = bat.get("target_position")
             feszultsegjo = bat.get("feszultsegjo")
 
             # Status-ok kezelése
-            #if current == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
+            #if currentpos == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
             #    do_loading_step_any(client)
             #    if (operation == 0):
-            #        rotate_to_position(client, current, STATUS_TO_POSITION[status])
+            #        rotate_to_position(client, currentpos, STATUS_TO_POSITION[status])
             #        update_battery_status(cell_id, {"current_position": })
             #        time.sleep(3)
 
@@ -586,7 +587,7 @@ def main():
                 time.sleep(2)
 
             elif status == 2: # P2 - Feszültségmérés
-                rotate_to_position(client, current, target)
+                rotate_to_position(client, currentpos, target)
                 time.sleep(2)
                 do_voltage_measure_step(ser, cell_id)
                 time.sleep(2)
@@ -597,21 +598,21 @@ def main():
                 time.sleep(2)
 
             elif status == 4: # Merítés
-                rotate_to_position(client, current, target)
+                rotate_to_position(client, currentpos, target)
                 time.sleep(2)
                 do_discharge_step(client, cell_id, ser)
                 if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 4, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
                 time.sleep(2)
             
             elif status == 5: # Újratöltés
-                rotate_to_position(client, current, target)
+                rotate_to_position(client, currentpos, target)
                 time.sleep(2)
                 do_charge_step(client, cell_id, ser, status)
                 update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
             
             elif status in (7, 9) and feszultsegjo == True: # Jó vagy Rossz
-                rotate_to_position(client, current, target)
+                rotate_to_position(client, currentpos, target)
                 time.sleep(5)
                 do_output_step(client, cell_id, good=(status == 7))
                 
@@ -627,7 +628,7 @@ def main():
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
             
             elif status == 9 and (feszultsegjo == False or feszultsegjo == None):
-                rotate_to_position(client, current, target)
+                rotate_to_position(client, currentpos, target)
                 time.sleep(5)
                 do_output_step(client, cell_id, good = False)
 
