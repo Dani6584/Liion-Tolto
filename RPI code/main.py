@@ -242,6 +242,7 @@ def do_loading_step(client, bid, current, status, operation):
         time.sleep(2)
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
         update_battery_status(bid, {"operation": 1})
+        time.sleep(2)
         if operation == 1: update_battery_status(bid, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
         time.sleep(2)
     
