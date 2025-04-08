@@ -229,7 +229,7 @@ def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid, current, status, operation):
-    if not bid.get("betoltes"):
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("betoltes") == False:
         if status == 1 and operation == 0:
             log_to_appwrite(f"📦 Loading cell: {bid}")
             client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
