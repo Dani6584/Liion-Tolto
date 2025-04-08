@@ -229,23 +229,22 @@ def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid, current, status, operation):
-    if current != 0 and status != 1:
-        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
-        time.sleep(2)
-        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-        time.sleep(1)
-        if status != 2:
-            rotate_to_position(client, 1, current)
-
-    if current == 0 and status == 1 and operation == 0:
-        log_to_appwrite(f"📦 Loading cell: {bid}")
-        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
-        time.sleep(2)
-        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-        update_battery_status(bid, {"operation": 1})
-        time.sleep(2)
-        if operation == 1: update_battery_status(bid, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
-        time.sleep(2)
+    if not bid.get("betoltes"):
+        if status == 1 and operation == 0:
+            log_to_appwrite(f"📦 Loading cell: {bid}")
+            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
+            time.sleep(2)
+            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+            update_battery_status(bid, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2, "betoltes": True})
+            time.sleep(2)
+        else:
+            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
+            time.sleep(2)
+            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+            update_battery_status(bid, {"betoltes": True})
+            time.sleep(2)
+            if status != 2:
+                rotate_to_position(client, 1, current)
     
 def do_loading_step_any(client):
     log_to_appwrite(f"📦 Loading cell")
