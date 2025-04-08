@@ -234,7 +234,8 @@ def do_loading_step(client, bid, current, status, operation):
         time.sleep(2)
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
         time.sleep(1)
-        rotate_to_position(client, 1, current)
+        if status != 2:
+            rotate_to_position(client, 1, current)
 
     if current == 0 and status == 1 and operation == 0:
         log_to_appwrite(f"📦 Loading cell: {bid}")
