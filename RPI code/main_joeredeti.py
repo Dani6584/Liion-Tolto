@@ -214,36 +214,26 @@ def measure_from_serial(ser):
 def rotate_to_position(client, current, target):
     log_to_appwrite(f"Position: {current} → {target}")
     n = target - current
-    jel = 0
 
     for i in range(n):
         client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
-        time.sleep(0.25)
+        time.sleep(0.2)
+         
+        while (client.read_coils(SENSOR_COIL_ADDRESS, count=1)).bits[0] != True:
+            client.read_coils(SENSOR_COIL_ADDRESS, count=1)
         
-        coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-        while coils.bits[0] != True:
-            coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-        
+        time.sleep(0.1)
         client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
-        jel += 1
-        time.sleep(1)
+        time.sleep(3)
     log_to_appwrite(f"Position reached: {target}")
 
-def do_loading_step(client, bid, current, status):
-    if current != 0 and status != 1:
+def do_loading_step(client, bid):
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
+        log_to_appwrite(f"📦 Loading cell: {bid}")
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
         time.sleep(2)
         client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-        time.sleep(1)
-        rotate_to_position(client, 1, current)
-
-    elif current == 0 and status == 1:
-        if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
-            log_to_appwrite(f"📦 Loading cell: {bid}")
-            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
-            time.sleep(2)
-            client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-            update_battery_status(bid, {"operation": 1})
+        update_battery_status(bid, {"operation": 1})
     
 def do_loading_step_any(client):
     log_to_appwrite(f"📦 Loading cell")
@@ -549,8 +539,11 @@ def main():
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
                 coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
                 log_to_appwrite(coils.bits[0])
+
                 while coils.bits[0] != True:
                     coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                    log_to_appwrite(coils)
+                    time.sleep(1)
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
@@ -579,16 +572,21 @@ def main():
             target = bat.get("target_position")
             feszultsegjo = bat.get("feszultsegjo")
 
-            do_loading_step(client, cell_id, current, status) # Ez arra van hogy a félbeszakított cellát visszaküldje a régi helyzetébe
+            # Status-ok kezelése
+            #if current == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
+            #    do_loading_step_any(client)
+            #    if (operation == 0):
+            #        rotate_to_position(client, current, STATUS_TO_POSITION[status])
+            #        update_battery_status(cell_id, {"current_position": })
+            #        time.sleep(3)
 
             if status == 1: # P1 - Betöltés
-                do_loading_step(client, cell_id, current, status)
+                do_loading_step(client, cell_id)
                 if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
                 time.sleep(2)
 
             elif status == 2: # P2 - Feszültségmérés
                 rotate_to_position(client, current, target)
-                update_battery_status(cell_id, {"current_position": 2})
                 time.sleep(2)
                 do_voltage_measure_step(ser, cell_id)
                 time.sleep(2)
@@ -600,7 +598,6 @@ def main():
 
             elif status == 4: # Merítés
                 rotate_to_position(client, current, target)
-                update_battery_status(cell_id, {"current_position": 3})
                 time.sleep(2)
                 do_discharge_step(client, cell_id, ser)
                 if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 4, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
@@ -608,7 +605,6 @@ def main():
             
             elif status == 5: # Újratöltés
                 rotate_to_position(client, current, target)
-                update_battery_status(cell_id, {"current_position": 4})
                 time.sleep(2)
                 do_charge_step(client, cell_id, ser, status)
                 update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
@@ -616,7 +612,6 @@ def main():
             
             elif status in (7, 9) and feszultsegjo == True: # Jó vagy Rossz
                 rotate_to_position(client, current, target)
-                update_battery_status(cell_id, {"current_position": STATUS_TO_POSITION[status]})
                 time.sleep(5)
                 do_output_step(client, cell_id, good=(status == 7))
                 
@@ -633,7 +628,6 @@ def main():
             
             elif status == 9 and (feszultsegjo == False or feszultsegjo == None):
                 rotate_to_position(client, current, target)
-                update_battery_status(cell_id, {"current_position": STATUS_TO_POSITION[status]})
                 time.sleep(5)
                 do_output_step(client, cell_id, good = False)
 
@@ -647,6 +641,7 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+                
 
             time.sleep(1)
     except KeyboardInterrupt:
