@@ -548,6 +548,7 @@ def main():
                 log_to_appwrite(coils.bits[0])
                 while coils.bits[0] != True:
                     coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                    log_to_appwrite("Keresi")
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
