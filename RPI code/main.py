@@ -38,7 +38,7 @@ PLC_IP = "192.168.1.5"
 PLC_PORT = 502
 
 # Modbus
-SENSOR_COIL_ADDRESS = 8 # Lepetesnel hasznalt szenzor
+SENSOR_COIL_ADDRESS = 10 # Lepetesnel hasznalt szenzor
 MODBUS_INPUT_SENSOR = 9 # Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
 MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
@@ -547,10 +547,10 @@ def main():
                 coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
                 log_to_appwrite(coils.bits[0])
 
-                #while coils.bits[0] != True:
-                #    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
-                #    log_to_appwrite(coils.bits[0])
-                #    time.sleep(1)
+                while coils.bits[0] != True:
+                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                    log_to_appwrite(coils)
+                    time.sleep(1)
                 if coils == 0:
                     log_to_appwrite("🕵️ No active cell ID found.")
                     time.sleep(5)
