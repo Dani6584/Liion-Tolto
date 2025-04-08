@@ -238,6 +238,7 @@ def do_loading_step(client, bid, current, status, operation):
             update_battery_status(bid, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2, "betoltes": True})
             time.sleep(2)
         else:
+            log_to_appwrite(f"📦 Loading cell: {bid}")
             client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
             time.sleep(2)
             client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
