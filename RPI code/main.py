@@ -581,12 +581,7 @@ def main():
 
             do_loading_step(client, cell_id, current, status, operation) # Ez arra van hogy a félbeszakított cellát visszaküldje a régi helyzetébe
 
-            if status == 1: # P1 - Betöltés
-                do_loading_step(client, cell_id, current, status, operation)
-                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
-                time.sleep(2)
-
-            elif status == 2: # P2 - Feszültségmérés
+            if status == 2: # P2 - Feszültségmérés
                 rotate_to_position(client, current, target)
                 update_battery_status(cell_id, {"current_position": 2})
                 time.sleep(2)
