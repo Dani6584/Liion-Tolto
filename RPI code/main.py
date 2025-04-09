@@ -189,11 +189,11 @@ def open_serial_port():
 def measure_from_serial(ser):
     try:
         ser.reset_input_buffer() # uj
-
-        timeout_val = time.time() + 10
-        #while time.time() < timeout_val:
-        if time.time() < timeout_val:
+        timeout_val = time.time() + 5
+        while time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
+            if not line:
+                continue
             log_to_appwrite(f"🔎 Serial line: {line}")
             try:
                 data = json.loads(line)
