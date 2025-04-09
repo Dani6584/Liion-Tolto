@@ -29,14 +29,17 @@ RPI_LOGGING_COLLECTION = "67dfc9720019d64746b0"
 HARDWARE_FLAGS_COLLECTION = "67de7e600036fcfc5959"
 CHARGE_COLLECTION = "67d18e17000dc1b54f39"
 DISCHARGE_COLLECTION = "67ac8901003b19f4ca35"
-BATTERY_COLLECTION = "67a5b55b002eceac9c33"
+BATTERY_COLLECTION = "67f279860016263782ae"
+REFERENCEBATTERY = "67d9b54d0005a8009bc2"
 
 # Serial & PLC config
 BAUD_RATE = 9600
 PLC_IP = "192.168.1.5"
 PLC_PORT = 502
-SENSOR_COIL_ADDRESS = 8
 
+# Modbus
+SENSOR_COIL_ADDRESS = 8 # Lepetesnel hasznalt szenzor
+MODBUS_INPUT_SENSOR = 9 # Ez azert kell hogy megnezzem, hogy van-e cella a taroloban
 MODBUS_OUTPUT_STEPPER = 0
 MODBUS_OUTPUT_BATTERY_LOADER = 1
 MODBUS_OUTPUT_BAD_EJECT = 2
@@ -44,6 +47,20 @@ MODBUS_OUTPUT_GOOD_EJECT = 3
 MODBUS_OUTPUT_CHARGE_SWITCH = 4
 MODBUS_OUTPUT_DISCHARGE = 5
 MODBUS_OUTPUT_DCMOTOR = 6
+
+# Hardware_Flags
+FORCE_PROGRESS = "67e978a400033ff184cf"
+TEST_MODE = "67e96f70002ac63bf054"
+RPI_MESSAGE = "67dfc91e003b95ec25dd"
+ACTIVE_CELL_ID = "67df14d30029fd472f78"
+ERROR_MSG = "67ded78000126b96814e"
+SYSTEM_BUSY = "67ded77700122936b58d"
+OCR_LAST = "67ded770000ab7e4ea08"
+OCR_ACTIVE = "67ded75c002fdd6f4d2d"
+ROTATE_CELL = "67debe6f0015e7f39e73"
+DISCHARGE_SWITCH = "67deab5a0032c611045d"
+CHARGER_SWITCH = "67dea772003c551fc53b"
+REFERENCE_THRESHOLD = "67de7f1300149699e3ea"
 
 STATUS_TO_POSITION = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 7: 5, 9: 5}
 
@@ -107,8 +124,8 @@ def get_battery_by_id(bid):
             "$id": bid,
             "status": 1,
             "operation": 0,
-            "chargecapacity": 1900,
-            "dischargecapacity": 1850,
+            "charge_capacity": 1900,
+            "discharge_capacity": 1850,
             "measured_capacity": None,
             "allapot": None
         }
@@ -124,13 +141,13 @@ def update_battery_status(bid, data):
     except Exception as e:
         log_to_appwrite(f"update_battery_status error: {e}")
 
-def update_battery_hardware(bid, data):
+def update_battery_hardware(hardwarename, data):
     try:
-        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, bid, data=data)
+        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, hardwarename, data=data)
     except Exception as e:
         log_to_appwrite(f"update_battery_hardware error: {e}")
 
-def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False):
+def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=None, open_circuit=False, status=None):
     try:
         payload = {
             "battery": battery_id,
@@ -140,6 +157,7 @@ def save_measurement_to_appwrite(collection_id, battery_id, voltage, current=Non
         if current:
             if collection_id == CHARGE_COLLECTION:
                 payload["chargecurrent"] = current
+                payload["status"] = status
             elif collection_id == DISCHARGE_COLLECTION:
                 payload["dischargecurrent"] = current
 
@@ -193,56 +211,96 @@ def measure_from_serial(ser):
         return None, None, None, None, None, None
 
 # State functions
-def rotate_to_position(client, current_position, target_position):
-    log_to_appwrite(f"Position: {current_position} → {target_position}")
+def rotate_to_position(client, currentpos, target):
+    log_to_appwrite(f"Position: {currentpos} → {target}")
+    n = target - currentpos
 
-    client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
-    while True:
-        coils = client.read_coils(SENSOR_COIL_ADDRESS, count=1)
-        if not coils.isError():
-            if len(coils.bits) > 0 and not coils.bits[0]:
-                break
-
-        time.sleep(0.05)
-
-    client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
-    log_to_appwrite(f"Position reached: {target_position}")
+    for i in range(n):
+        client.write_coil(MODBUS_OUTPUT_STEPPER, 1)
+        time.sleep(0.2)
+         
+        while (client.read_coils(SENSOR_COIL_ADDRESS, count=1)).bits[0] != True:
+            client.read_coils(SENSOR_COIL_ADDRESS, count=1)
+        
+        time.sleep(0.1)
+        client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
+        time.sleep(3)
+    log_to_appwrite(f"Position reached: {target}")
 
 def do_loading_step(client, bid):
-    log_to_appwrite(f"📦 Loading cell: {bid}")
-    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 1)
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
+        log_to_appwrite(f"📦 Loading cell: {bid}")
+        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
+        time.sleep(2)
+        client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
+        update_battery_status(bid, {"operation": 1})
+    
+def do_loading_step_any(client):
+    log_to_appwrite(f"📦 Loading cell")
+    client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, True)
     time.sleep(2)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
-    update_battery_status(bid, {"operation": 1})
 
-def do_voltage_measure_step(ser, bid):
+def do_voltage_measure_step(ser, bid, client):
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
+    time.sleep(2)
+
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
+    log_to_appwrite(voltage)
     if voltage is not None:
         update_battery_status(bid, {"feszultseg": voltage, "operation": 1})
         if voltage < 2.5:
-            update_battery_status(bid, {"status": 9, "operation": 0})
             log_to_appwrite("⚠️ Voltage < 2.5V → BAD CELL")
-    log_to_appwrite("Voltage measurement: ✅")
-
-def do_charge_step(client, bid, ser):
-    if bid.get("operation") == 0:
+            update_battery_status(bid, {"status": 9, "operation": 0, "current_position": 2, "target_position": 6, "feszultsegjo": False, "toltes_kezdes": datetime.now().isoformat()})
+        else:
+            log_to_appwrite("Voltage measurement: ✅")
+            update_battery_status(bid, {"status": 3, "operation": 0, "current_position": 2, "target_position": 2, "feszultsegjo": True, "toltes_kezdes": datetime.now().isoformat()})
+    
+def do_charge_step(client, bid, ser, status):
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite("⚡ Charge started")
 
-        # Üresjárás (I = 0)
-        voltage, current, *_ = measure_from_serial(ser)
-        if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+        # DISCHARGE_SWITCH ellenőrzése és kapcsolása    
+        dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+        dischargestate = False if dischargestate else dischargestate
+        update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+        
+        if status == 3:
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+        elif status == 5:
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
+        time.sleep(3)
 
-        while voltage < 4.18:
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 1)
-            update_battery_hardware(bid, {"CHARGER_SWITCH": True})
-            time.sleep(5)
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
-            update_battery_hardware(bid, {"CHARGER_SWITCH": False})
+        # Toltes kezdetekori ertek
+        #ocv, *_ = measure_from_serial(ser)
+        #if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
+
+        while ocv < 4.18: #TODO:TOLTO
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            time.sleep(1)
 
             voltage, current, *_ = measure_from_serial(ser)
-            if voltage: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False)
+            save_measurement_to_appwrite(CHARGE_COLLECTION, bid, voltage, current, False, status)
 
+            time.sleep(30)
+
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+
+            time.sleep(5)
+            
+            ocv, *_ = measure_from_serial(ser)
+            if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
+
+            '''
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
                 ocv = ocv_entry.get("voltage")
@@ -253,28 +311,47 @@ def do_charge_step(client, bid, ser):
                     log_to_appwrite(f"🧮 Estimated Internal Resistance: {resistance} Ω")
             except Exception as e:
                 log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
-
+            '''
         update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
     if bid.get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
+        
+        # DISCHARGE_SWITCH ellenőrzése és kapcsolása
+        dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+        dischargestate = True if not dischargestate else dischargestate
+        update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+        
+        update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+        client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+        time.sleep(3)
+        # Merites kezdetekori ertek
+        #ocv, *_ = measure_from_serial(ser)
+        #if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
 
-        # Üresjárás (I = 0)
-        voltage, *_ = measure_from_serial(ser)
-        if voltage: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current=None, open_circuit=True)
-
-        while voltage > 3.02:
-            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 1)
-            update_battery_hardware(bid, {"DISCHARGER_SWITCH": True})     # .js function vegett kell
-            time.sleep(5)
-            client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
-            update_battery_hardware(bid, {"DISCHARGER_SWITCH": False})    # .js function vegett kell
+        while ocv > 3.02:
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            time.sleep(1)
 
             voltage, current, *_ = measure_from_serial(ser)
-            if voltage:
-                save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False)
+            save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, voltage, current, False)
 
+            time.sleep(30)
+
+            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+
+            time.sleep(5)
+            
+            ocv, *_ = measure_from_serial(ser)
+            if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
+
+            '''
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
                 ocv = ocv_entry.get("voltage")
@@ -285,79 +362,84 @@ def do_discharge_step(client, bid, ser):
                     log_to_appwrite(f"🧮 Estimated Internal Resistance: {resistance} Ω")
             except Exception as e:
                 log_to_appwrite(f"⚠️ Failed to calculate internal resistance: {e}")
-
+            '''
         update_battery_status(bid, {"operation": 1})
 
 
+def convert(a):
+    dt = datetime.fromisoformat(a)
+    return dt.hour + (dt.minute / 60)
+
+def reference_capacity_check(kod):
+    reftype = [doc.get("Type") for doc in databases.list_documents(DATABASE_ID, REFERENCEBATTERY).get("documents", [])]
+    for refkod in reftype:
+        if (kod == refkod):
+            return next((doc.get("Capacity") for doc in databases.list_documents(DATABASE_ID, REFERENCEBATTERY, [Query.equal("Type", kod)]).get("documents", [])))
+    return 2400
+
 def do_capacity_calculation(bid):
     bat = get_battery_by_id(bid)
-    charge = bat.get("chargecapacity") or 0
-    discharge = bat.get("dischargecapacity") or 0
-    measured = discharge or 0
-    if not measured:
-        try:
-            logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
-            measured = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
-            measured = round(measured / 3600, 2)
-        except Exception as e:
-            log_to_appwrite(f"❌ Discharge capacity estimation failed: {e}")
-    
+    refmAh = reference_capacity_check(kod=bat.get("leolvasottkod"))
+    bathard = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, REFERENCE_THRESHOLD).get("setting_data")
+
+    reference_capacity_check( kod=bat.get("leolvasottkod"))
+
+    charge = bat.get("charge_capacity") or 0
+    discharge = bat.get("discharge_capacity") or 0
+    recharge = bat.get("recharge_capacity") or 0
+
     if not charge:
         try:
-            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
-            charge = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
-            charge = round(charge / 3600, 2)
-            update_battery_status(bid, {"chargecapacity": charge})
-            log_to_appwrite(f"⚡ Estimated charge capacity: {charge} mAh")
+            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", False), Query.equal("status", [3])]).get("documents", [])
+            ido = abs(convert(bat.get("toltes_vege")) - convert(bat.get("toltes_kezdes")))
+            osszeadva = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
+            
+            mAh = round(avg * ido * 1000, 2)
+            PmAh = round((mAh / refmAh) * 100)
+
+            update_battery_status(bid, {"charge_capacity": mAh})
+            update_battery_status(bid, {"charge_capacity_percentage": PmAh})
         except Exception as e:
-            log_to_appwrite(f"❌ Charge capacity estimation failed: {e}")
-    
-    quality = "Jó" if measured >= 1800 else "Rossz"
-    status_next = 7 if quality == "Jó" else 9
-    log_to_appwrite(f"🧪 Capacity measured: {measured} mAh → {quality}")
-    update_battery_status(bid, {"status": status_next, "operation": 0, "recharge_vege": datetime.now().isoformat(), "measured_capacity": measured, "allapot": quality})
+            log_to_appwrite(f"❌ Charge capacity esitmation failed: {e}")
 
+    if not discharge:
+        try:
+            logs = databases.list_documents(DATABASE_ID, DISCHARGE_COLLECTION, [Query.equal("battery", [bid])]).get("documents", [])
+            ido = abs(convert(bat.get("merites_vege")) - convert(bat.get("mnerites_kezdes")))
+            osszeadva = sum(entry.get("dischargecurrent", 0) for entry in logs if entry.get("dischargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
+            
+            mAh = avg * ido * 1000
+            PmAh = round((mAh / refmAh) * 100)
 
+            update_battery_status(bid, {"discharge_capacity": mAh})
+            update_battery_status(bid, {"discharge_capacity_percentage": PmAh})
 
+            # Akkumulátorcella besorolása | jó vagy rossz
+            quality = "jo" if mAh >= (refmAh * bathard.get("REFERENCE_THRESHOLD")) else "rossz"
+            status_next = 7 if quality == "jo" else 9
+            position_next = 5 if quality == "jo" else 6
 
+            update_battery_status(bid, {"status": status_next, "operation": 0, "current_position": 4, "target_position": position_next, "toltes_kezdes": datetime.now().isoformat()})
 
+        except Exception as e:
+            log_to_appwrite(f"❌ Discharge capacity esitmation failed: {e}")
 
+    if not recharge:
+        try:
+            logs = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("status", [5])]).get("documents", [])
+            ido = abs(convert(bat.get("ujratoltes_vege")) - convert(bat.get("ujratoltes_kezdes")))
+            osszeadva = sum(entry.get("chargecurrent", 0) for entry in logs if entry.get("chargecurrent"))
+            avg = round( osszeadva / len(logs), 2)
+            
+            mAh = avg * ido * 1000
+            PmAh = round((mAh / refmAh) * 100)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            update_battery_status(bid, {"recharge_capacity": mAh})
+            update_battery_status(bid, {"recharge_capacity_percentage": PmAh})
+        except Exception as e:
+            log_to_appwrite(f"❌ Recharge capacity esitmation failed: {e}")
 
 def do_output_step(client, bid, good=True):
     log_to_appwrite(f"📦 Ejecting cell: {bid}")
@@ -392,21 +474,16 @@ def rotate_ocr_motor(client):
                 data={
                     "status": 1,
                     "operation": 0,
-                    "leolvasottkod": "Ismeretlen cella",
+                    "leolvasottkod": "---",
                     "nyerskod": "---",
-                    "allapot": "Folyamatban",
-                    "ideal_capacity": "0",
-                    "ideal_voltage": ""
+                    "rotate_attempts": max_attempts,
+                    "current_position": 0,
+                    "target_position": 1
                 }
             )
             doc_active = get_setting("ACTIVE_CELL_ID")
             if doc_active:
-                databases.update_document(
-                    database_id=DATABASE_ID,
-                    collection_id=HARDWARE_FLAGS_COLLECTION,
-                    document_id=doc_active["$id"],
-                    data={"setting_data": doc["$id"]}
-                )
+                databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, document_id=doc_active["$id"], data={"setting_data": doc["$id"]})
             log_to_appwrite(f"📌 Created UNKNOWN cell and set as active: {doc['$id']}")
         except Exception as e:
             log_to_appwrite(f"❌ Failed to create UNKNOWN cell: {e}")
@@ -419,7 +496,9 @@ def fail_active_cell():
     try:
         doc = get_setting("ACTIVE_CELL_ID")
         if doc and doc.get("setting_data"):
-            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "allapot": "Hibás indulás"})
+            battery = get_battery_by_id(doc.get("settings_data"))
+            pozicio = STATUS_TO_POSITION[battery.get("status")]
+            update_battery_status(doc["setting_data"], {"status": 9, "operation": 0, "current_position": pozicio,"target": 6, "allapot": "rossz"}) #"allapot": "Hibás indulás"
             log_to_appwrite("❌ Marked active cell as failed on startup")
     except Exception as e:
         log_to_appwrite(f"⚠️ Failed to mark active cell as failed: {e}")
@@ -431,6 +510,8 @@ def main():
                 f.write(datetime.now().isoformat())
         except Exception as e:
             log_to_appwrite(f"⚠️ Failed to ping watchdog: {e}")
+
+    # Kapcsolatok létesítése
     log_to_appwrite("🚀 MAIN STARTED")
     client = ModbusTcpClient(PLC_IP, port=PLC_PORT)
     ser = open_serial_port()
@@ -442,27 +523,45 @@ def main():
         return
     log_to_appwrite("✅ Serial and Modbus ready. Entering main loop.")
 
+    # Modbus Output-ok törlése
     client.write_coil(MODBUS_OUTPUT_STEPPER, 0)
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
-    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
-    
-    log_to_appwrite("🧹 All Modbus outputs reset")
-    fail_active_cell()
 
+    update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": False})
+    update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
+
+    log_to_appwrite("🧹 All Modbus outputs reset")
+
+    fail_active_cell()
+#pull test
     try:
         while True:
             ping_watchdog()
-            log_to_appwrite("🔍 Checking for active cell...")
+            log_to_appwrite("Retrieving Active Cell ID...")
             cell_id = get_active_cell_id()
             if not cell_id:
-                log_to_appwrite("🕵️ No active cell ID found.")
+                # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
+                coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                log_to_appwrite(coils.bits[0])
+
+                while coils.bits[0] != True:
+                    coils = client.read_coils(MODBUS_INPUT_SENSOR, count=1)
+                    log_to_appwrite(coils)
+                    time.sleep(1)
+                if coils == 0:
+                    log_to_appwrite("🕵️ No active cell ID found.")
+                    time.sleep(5)
+                    continue
+                    
                 rotate_ocr_motor(client)
                 time.sleep(3)
                 continue
+
             bat = get_battery_by_id(cell_id)
             log_to_appwrite(f"📦 Battery doc: {bat}")
             if not bat:
@@ -472,47 +571,61 @@ def main():
             
             status = bat.get("status", 0)
             operation = bat.get("operation", 0)
-            force_progress = get_force_progress()
-            log_to_appwrite(f"📊 Status: {status}, Operation: {operation}, FORCE_PROGRESS: {force_progress}")
+            force_progress = get_force_progress() #
+            log_to_appwrite(f"BatteryID: {cell_id}, Status: {status}, Operation: {operation}, FORCE_PROGRESS: {force_progress}")
             if operation == 1 and not force_progress:
                 time.sleep(2)
                 continue
-            log_to_appwrite(f"⚙️ Performing action for battery {cell_id} with status {status}")
+
+            currentpos = bat.get("current_position")
+            target = bat.get("target_position")
+            feszultsegjo = bat.get("feszultsegjo")
 
             # Status-ok kezelése
-            current_position = STATUS_TO_POSITION[bat.get("status")]
+            #if currentpos == 0 and status in STATUS_TO_POSITION and status in [2, 3, 4, 5, 7, 9]: # Ha a betöltőrészben van és más a status, akkor helyére küldöm
+            #    do_loading_step_any(client)
+            #    if (operation == 0):
+            #        rotate_to_position(client, currentpos, STATUS_TO_POSITION[status])
+            #        update_battery_status(cell_id, {"current_position": })
+            #        time.sleep(3)
 
-            if current_position == 0 and status in STATUS_TO_POSITION and status in [7, 9]:
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-
-            if status == 1: # Betöltés
+            if status == 1: # P1 - Betöltés
                 do_loading_step(client, cell_id)
-                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0})
+                if operation == 1: update_battery_status(cell_id, {"status": 2, "operation": 0, "current_position": 1, "target_position": 2})
+                time.sleep(2)
 
-            elif status == 2: # Feszültségmérés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_voltage_measure_step(ser, cell_id)
-                if operation == 1: update_battery_status(cell_id, {"status": 3, "operation": 0, "toltes_kezdes": datetime.now().isoformat()})
+            elif status == 2: # P2 - Feszültségmérés
+                rotate_to_position(client, currentpos, target)
+                time.sleep(2)
+                do_voltage_measure_step(ser, cell_id, client)
+                time.sleep(2)
 
-            elif status == 3: # Töltés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_charge_step(client, cell_id, ser)
-                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+            elif status == 3: # P2 - Töltés
+                do_charge_step(client, cell_id, ser, status)
+                if operation == 1: update_battery_status(cell_id, {"status": 4, "operation": 0, "current_position": 2, "target_position": 3, "toltes_vege": datetime.now().isoformat(), "merites_kezdes": datetime.now().isoformat()})
+                time.sleep(2)
 
             elif status == 4: # Merítés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+                rotate_to_position(client, currentpos, target)
+                time.sleep(2)
                 do_discharge_step(client, cell_id, ser)
-                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
+                if operation == 1: update_battery_status(cell_id, {"status": 5, "operation": 0, "current_position": 3, "target_position": 4, "merites_vege": datetime.now().isoformat(), "ujratoltes_kezdes": datetime.now().isoformat()})
+                time.sleep(2)
             
             elif status == 5: # Újratöltés
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
-                do_charge_step(client, cell_id, ser)
+                rotate_to_position(client, currentpos, target)
+                time.sleep(2)
+                do_charge_step(client, cell_id, ser, status)
+                update_battery_status(cell_id, {"ujratoltes_vege": datetime.now().isoformat()})
                 do_capacity_calculation(cell_id)
             
-            elif status in (7, 9): # Jó vagy Rossz
-                rotate_to_position(client, current_position, STATUS_TO_POSITION[status])
+            elif status in (7, 9) and feszultsegjo == True: # Jó vagy Rossz
+                rotate_to_position(client, currentpos, target)
+                time.sleep(5)
                 do_output_step(client, cell_id, good=(status == 7))
-                update_battery_status(cell_id, {"status": 0, "operation": 0, "allapot_uzenet": "Kész cella, új betöltés jöhet"})
+                
+                update_battery_status(cell_id, {"status": 0, "operation": 0})
+                log_to_appwrite("Kész cella, új betöltés jöhet")
 
                 try:
                     doc_active = get_setting("ACTIVE_CELL_ID")
@@ -521,6 +634,24 @@ def main():
                         log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+            
+            elif status == 9 and (feszultsegjo == False or feszultsegjo == None):
+                rotate_to_position(client, currentpos, target)
+                time.sleep(5)
+                do_output_step(client, cell_id, good = False)
+
+                update_battery_status(cell_id, {"status": 0, "operation": 0})
+                log_to_appwrite("Kész cella, új betöltés jöhet")
+
+                try:
+                    doc_active = get_setting("ACTIVE_CELL_ID")
+                    if doc_active:
+                        databases.update_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, doc_active["$id"], {"setting_data": None})
+                        log_to_appwrite("🧹 Cleared ACTIVE_CELL_ID after completion")
+                except Exception as e:
+                    log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
+                
+
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
