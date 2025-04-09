@@ -174,15 +174,20 @@ def find_serial_port():
 def open_serial_port():
     global SERIAL_PORT
     try:
-        return serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2) #uj
+        ser.reset_input_buffer() #uj
+        return ser
     except FileNotFoundError:
         SERIAL_PORT = find_serial_port()
         if SERIAL_PORT:
-            return serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
+            ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
+            ser.reset_input_buffer()
+            return ser
     return None
 
 def measure_from_serial(ser):
     try:
+        ser.reset_input_buffer() # uj
         timeout_val = time.time() + 5
         while time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
@@ -204,7 +209,7 @@ def measure_from_serial(ser):
 
                 return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
             except Exception:
-                pass
+                continue #ez volt a continue helyett a regebbi valtozatban: pass
         raise ValueError("No valid structured measurement found in serial input")
     except Exception as e:
         log_to_appwrite(f"measure_from_serial error: {e}")
