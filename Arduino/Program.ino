@@ -83,7 +83,6 @@ float measureVoltage(int pin) {
   const int samples = 50;
 
   for (int i = 0; i < samples; i++) {
-    Serial.print(analogRead(pin));
     sum += analogRead(pin);
     delay(5);
   }

@@ -532,21 +532,13 @@ def main():
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
 
-    while True:
-        client.write_coil(MODBUS_OUTPUT_DISCHARGE, True)
-        time.sleep(20)
-        client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
-        time.sleep(20)
+    update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": False})
+    update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
 
-    #update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": False})
-    #update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
+    log_to_appwrite("🧹 All Modbus outputs reset")
 
-    #log_to_appwrite("🧹 All Modbus outputs reset")
-
-'''
     fail_active_cell()
 #pull test
-
     try:
         while True:
             ping_watchdog()
@@ -666,7 +658,6 @@ def main():
     finally:
         client.close()
         ser.close()
-        '''
 
 if __name__ == "__main__":
     main()
