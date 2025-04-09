@@ -188,13 +188,16 @@ def open_serial_port():
 
 def measure_from_serial(ser):
     try:
-        timeout_val = time.time() + 50
+        ser.reset_input_buffer() # uj
+
+        timeout_val = time.time() + 10
+        #while time.time() < timeout_val:
         if time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
+            if not line:
+                continue
             log_to_appwrite(f"🔎 Serial line: {line}")
-            '''
             try:
-                
                 data = json.loads(line)
                 voltage = float(data.get("chargerA_voltage", 0.0))
                 current = float(data.get("charge", 0.0)) / 1000.0  # Convert mA -> A
@@ -206,12 +209,10 @@ def measure_from_serial(ser):
                 if discharge_current > 0:
                     resistance_check = round(discharge_voltage / discharge_current, 2)
                     log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
-                
+
                 return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
-                
             except Exception:
                 continue #ez volt a continue helyett a regebbi valtozatban: pass
-                '''
         raise ValueError("No valid structured measurement found in serial input")
     except Exception as e:
         log_to_appwrite(f"measure_from_serial error: {e}")
@@ -550,10 +551,6 @@ def main():
         while True:
             ping_watchdog()
             log_to_appwrite("Retrieving Active Cell ID...")
-
-            measure_from_serial(ser)
-            time.sleep(5)
-            '''
             cell_id = get_active_cell_id()
             if not cell_id:
                 # Induktív szenzorral megnézem, hogy van-e akkumulátorcella a kezdőhelyen
@@ -662,7 +659,7 @@ def main():
                 except Exception as e:
                     log_to_appwrite(f"⚠️ Failed to clear ACTIVE_CELL_ID: {e}")
                 
-            '''
+
             time.sleep(1)
     except KeyboardInterrupt:
         log_to_appwrite("🛑 Script terminated by user.")
