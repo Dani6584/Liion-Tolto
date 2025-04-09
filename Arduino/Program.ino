@@ -83,6 +83,7 @@ float measureVoltage(int pin) {
   const int samples = 50;
 
   for (int i = 0; i < samples; i++) {
+    Serial.print(analogRead(pin));
     sum += analogRead(pin);
     delay(5);
   }
@@ -90,8 +91,7 @@ float measureVoltage(int pin) {
   float avgValue = sum / (float)samples;
 
   // Feszültség kiszámítása
-  //float voltage = avgValue * (vRef / 1023.0);
-  float voltage = avgValue;
+  float voltage = avgValue * (vRef / 1023.0);
 
   return voltage;
 }
