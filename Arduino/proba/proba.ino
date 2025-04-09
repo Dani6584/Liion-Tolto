@@ -6,11 +6,11 @@ void setup() {
 
 void loop() {
   // Mérések elvégzése
-  float chargeCurrent = 1.5
-  float dischargeCurrent = 2.5
-  float dischargeVoltage = 3.5
-  float chargerAVoltage = 4.5
-  float chargerBVoltage = 5.5
+  float chargeCurrent = 1.5;
+  float dischargeCurrent = 2.5;
+  float dischargeVoltage = 3.5;
+  float chargerAVoltage = 4.5;
+  float chargerBVoltage = 5.5;
 
   // JSON formátumú adat küldése egyetlen sorban a soros portra plusz új sor
    jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +

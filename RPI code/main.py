@@ -188,7 +188,6 @@ def open_serial_port():
 
 def measure_from_serial(ser):
     try:
-        ser.reset_input_buffer() # uj
         timeout_val = time.time() + 5
         while time.time() < timeout_val:
             line = ser.readline().decode(errors='ignore').strip()
