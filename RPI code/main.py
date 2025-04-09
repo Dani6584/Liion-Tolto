@@ -175,6 +175,7 @@ def open_serial_port():
     global SERIAL_PORT
     try:
         ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2) #uj
+        time.sleep(3)
         ser.reset_input_buffer() #uj
         return ser
     except FileNotFoundError:
