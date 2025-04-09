@@ -32,11 +32,16 @@ void loop() {
   float dischargeVoltage = measureVoltage(dischargeVoltagePin);
   float chargerAVoltage = measureVoltage(chargerAVoltagePin);
   float chargerBVoltage = measureVoltage(chargerBVoltagePin);
+  
+  float chargerAVoltageArray = measureVoltageArray(chargerAVoltagePin);
 
   // JSON formátumú adat küldése egyetlen sorban a soros portra plusz új sor
-   jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +
-                     ", \"discharge_voltage\":" + String(dischargeVoltage, 2) + ", \"chargerA_voltage\":" + String(chargerAVoltage, 2) +
-                     ", \"chargerB_voltage\":" + String(chargerBVoltage, 2) + "}";
+  //jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +
+  //                   ", \"discharge_voltage\":" + String(dischargeVoltage, 2) + ", \"chargerA_voltage\":" + String(chargerAVoltage, 2) +
+  //                   ", \"chargerB_voltage\":" + String(chargerBVoltage, 2) + "}";
+
+  jsonData = "{\"chargerA_voltage\":" + String(chargerAVoltage, 2) + ", \"chargerA_voltageArray\":" + String(chargerAVoltageArray, 2) + "}";
+
   Serial.println(jsonData);
   Serial.flush();
 
@@ -90,8 +95,18 @@ float measureVoltage(int pin) {
   float avgValue = sum / (float)samples;
 
   // Feszültség kiszámítása
-  //float voltage = avgValue * (vRef / 1023.0);
-  float voltage = avgValue
+  float voltage = avgValue * (vRef / 1023.0);
 
   return voltage;
+}
+
+float measureVoltageArray(int pin) {
+  const int samples = 50;
+  float tomb[50];
+  for (int i = 0; i < samples; i++) {
+    tomb[i] = analogRead(pin);
+    delay(5);
+  }
+
+  return tomb;
 }
