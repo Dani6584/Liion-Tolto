@@ -244,9 +244,8 @@ def do_loading_step_any(client):
 def do_voltage_measure_step(ser, bid, client):
     client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
     client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
-
-
     time.sleep(2)
+
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
     log_to_appwrite(voltage)
@@ -529,9 +528,13 @@ def main():
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
     client.write_coil(MODBUS_OUTPUT_GOOD_EJECT, 0)
     client.write_coil(MODBUS_OUTPUT_BAD_EJECT, 0)
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, 0)
-    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, 0)
+    client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
+    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
+
+    update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": False})
+    update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
+
     log_to_appwrite("🧹 All Modbus outputs reset")
 
     fail_active_cell()
