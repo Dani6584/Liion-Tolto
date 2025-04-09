@@ -90,7 +90,8 @@ float measureVoltage(int pin) {
   float avgValue = sum / (float)samples;
 
   // Feszültség kiszámítása
-  float voltage = avgValue * (vRef / 1023.0);
+  //float voltage = avgValue * (vRef / 1023.0);
+  float voltage = avgValue
 
   return voltage;
 }
