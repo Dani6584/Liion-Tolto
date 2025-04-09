@@ -533,9 +533,9 @@ def main():
     client.write_coil(MODBUS_OUTPUT_DCMOTOR, 0)
 
     while True:
-        client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, True)
         time.sleep(20)
-        client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
+        client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
         time.sleep(20)
 
     #update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": False})
