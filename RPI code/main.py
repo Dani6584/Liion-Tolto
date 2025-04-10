@@ -273,12 +273,13 @@ def do_charge_step(client, bid, ser, status):
         update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
+        
         if status == 3:
-            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
-        elif status == 5:
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": False})
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
+        elif status == 5:
+            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
+            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
         time.sleep(3)
 
         # Toltes kezdetekori ertek
@@ -302,9 +303,14 @@ def do_charge_step(client, bid, ser, status):
 
             time.sleep(5)
             
-            ocv, *_ = measure_from_serial(ser)
-            if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
-
+            if status == 3:
+                if switchstate == False:
+                    ocv, *_ = measure_from_serial(ser)
+                    if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
+            elif status == 5:
+                if switchstate == True:
+                    ocv, *_ = measure_from_serial(ser)
+                    if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
             '''
             try:
                 ocv_entry = databases.list_documents(DATABASE_ID, CHARGE_COLLECTION, [Query.equal("battery", [bid]), Query.equal("open_circuit", [True])]).get("documents", [])[0]
