@@ -250,9 +250,6 @@ def do_loading_step_any(client):
     client.write_coil(MODBUS_OUTPUT_BATTERY_LOADER, 0)
 
 def do_voltage_measure_step(ser, bid, client):
-    client.write_coil(MODBUS_OUTPUT_DISCHARGE, False)
-    client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, False)
-    time.sleep(2)
 
     log_to_appwrite("Voltage measurement started")
     voltage, *_ = measure_from_serial(ser)
@@ -288,7 +285,7 @@ def do_charge_step(client, bid, ser, status):
         #ocv, *_ = measure_from_serial(ser)
         #if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
-        while ocv < 4.18: #TODO:TOLTO
+        while ocv < 4.18:
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
@@ -328,21 +325,19 @@ def do_discharge_step(client, bid, ser):
         
         # DISCHARGE_SWITCH ellenőrzése és kapcsolása
         dischargestate = databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
-        dischargestate = True if not dischargestate else dischargestate
+        dischargestate = False if dischargestate else dischargestate
         update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
         client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
         
-        update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": True})
-        client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, True)
         time.sleep(3)
         # Merites kezdetekori ertek
         #ocv, *_ = measure_from_serial(ser)
         #if ocv: save_measurement_to_appwrite(DISCHARGE_COLLECTION, bid, ocv, 0, True)
 
         while ocv > 3.02:
-            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
-            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            dischargestate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+            update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
             time.sleep(1)
 
             voltage, current, *_ = measure_from_serial(ser)
@@ -350,9 +345,9 @@ def do_discharge_step(client, bid, ser):
 
             time.sleep(30)
 
-            switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
-            client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
-            update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
+            dischargestate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, DISCHARGE_SWITCH).get("setting_boolean")
+            client.write_coil(MODBUS_OUTPUT_DISCHARGE, dischargestate)
+            update_battery_hardware(DISCHARGE_SWITCH, {"setting_boolean": dischargestate})
 
             time.sleep(5)
             
