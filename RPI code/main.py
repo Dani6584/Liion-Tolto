@@ -326,7 +326,7 @@ def do_charge_step(client, bid, ser, status):
         update_battery_status(bid, {"operation": 1})
 
 def do_discharge_step(client, bid, ser):
-    if bid.get("operation") == 0:
+    if databases.get_document(DATABASE_ID, BATTERY_COLLECTION, bid).get("operation") == 0:
         log_to_appwrite("🔋 Discharge started")
         
         # DISCHARGE_SWITCH ellenőrzése és kapcsolása
