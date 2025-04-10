@@ -196,7 +196,7 @@ def measure_from_serial(ser):
             line = ser.readline().decode(errors='ignore').strip()
             if not line:
                 continue
-            log_to_appwrite(f"🔎 Serial line: {line}")
+            #log_to_appwrite(f"🔎 Serial line: {line}")
             try:
                 data = json.loads(line)
                 voltage = float(data.get("chargerA_voltage", 0.0))

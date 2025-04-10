@@ -49,8 +49,8 @@ void loop() {
 
       // JSON formátumú adat küldése egyetlen sorban a soros portra plusz új sor
       jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +
-                      ", \"discharge_voltage\":" + String(a * (5.01 / 1023), 2) + ", \"chargerA_voltage\":" + String(b * (5.01 / 1023), 2) +
-                      ", \"chargerB_voltage\":" + String(c * (5.01 / 1023), 2) + "}";
+                      ", \"discharge_voltage\":" + String((double)a * (5.01 / 1023), 2) + ", \"chargerA_voltage\":" + String((double)b * (5.01 / 1023), 2) +
+                      ", \"chargerB_voltage\":" + String((double)c * (5.01 / 1023), 2) + "}";
       Serial.println(jsonData);
       Serial.flush();
 
@@ -78,7 +78,7 @@ int calibrateACS712(int pin) {
 // ⚡ Áram mérése DC-ben (átlagolással)
 double measureCurrent(int pin, int zero) {
   voltage=0;
-  const int samples = 50;
+  //const int samples = 50;
 /*
   for (int i = 0; i < samples; i++) {
     sum += analogRead(pin);
@@ -89,9 +89,9 @@ double measureCurrent(int pin, int zero) {
 
   // Feszültség kiszámítása
   voltage = (double)analogRead(pin) * (vRef / 1023.0);
-
+  delay(5);
   // Áram kiszámítása milliamperben
-  double current = (double)((voltage - (zero * vRef / 1023.0)) / sensitivity) * 1000;
+  double current = (double)((voltage - ((double)zero * (double)vRef / (double)1023.0)) / (double)sensitivity) * (double)1000;
 
   return current;
 }

@@ -16,7 +16,7 @@ async function lekeres(docID, pinia = false) {
     const MeritesResponse = await database.listDocuments(ids.database_id,ids.merites_id, [Query.equal("battery", docID), Query.equal("open_circuit", false), Query.orderAsc("$createdAt")]);
     _fesz = MeritesResponse.documents.map(doc => doc.voltage);
     _idok = MeritesResponse.documents.map(doc => datum(doc.$createdAt));
-    _mcurrent = MeritesResponse.documents.map(doc => doc.dischargecurrent);
+    _mcurrent = MeritesResponse.documents.map(doc => (doc.dischargecurrent*1000));
     
     // Töltés collection
     const ToltesResponse = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.equal("open_circuit", true), Query.orderAsc("$createdAt")]);
@@ -24,7 +24,7 @@ async function lekeres(docID, pinia = false) {
     _idok2 = ToltesResponse.documents.map(doc => datum(doc.$createdAt));
 
     const ToltesResponse2 = await database.listDocuments(ids.database_id,ids.toltes_id, [Query.equal("battery", docID), Query.equal("open_circuit", false), Query.orderAsc("$createdAt")]);
-    _tcurrent = ToltesResponse2.documents.map(doc => doc.chargecurrent);
+    _tcurrent = ToltesResponse2.documents.map(doc => (doc.chargecurrent*1000));
 
     // Pinia
     const fetchData = new useFetchDataStore();
