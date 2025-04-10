@@ -286,7 +286,7 @@ def do_charge_step(client, bid, ser, status):
         ocv, *_ = measure_from_serial(ser)
         if ocv: save_measurement_to_appwrite(CHARGE_COLLECTION, bid, ocv, 0, True, status)
 
-        while ocv < 4.18:
+        while ocv < 3.93:
             switchstate = not databases.get_document(DATABASE_ID, HARDWARE_FLAGS_COLLECTION, CHARGER_SWITCH).get("setting_boolean")
             client.write_coil(MODBUS_OUTPUT_CHARGE_SWITCH, switchstate)
             update_battery_hardware(CHARGER_SWITCH, {"setting_boolean": switchstate})
