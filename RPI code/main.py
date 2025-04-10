@@ -206,9 +206,9 @@ def measure_from_serial(ser):
                 discharge_voltage = float(data.get("discharge_voltage", 0.0))
                 charger_b_voltage = float(data.get("chargerB_voltage", 0.0))
 
-                if discharge_current > 0:
-                    resistance_check = round(discharge_voltage / discharge_current, 2)
-                    log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
+                #if discharge_current > 0:
+                #    resistance_check = round(discharge_voltage / discharge_current, 2)
+                #    log_to_appwrite(f"🧪 Resistance check from serial: {resistance_check} Ω")
 
                 return voltage, current, mode, discharge_current, discharge_voltage, charger_b_voltage
             except Exception:
