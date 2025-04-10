@@ -26,21 +26,30 @@ void setup() {
 }
 
 void loop() {
-  // Mérések elvégzése
-  float chargeCurrent = measureCurrent(chargePin, zeroCharge);
-  float dischargeCurrent = measureCurrent(dischargePin, zeroDischarge);
-  float dischargeVoltage = measureVoltage(dischargeVoltagePin);
-  float chargerAVoltage = measureVoltage(chargerAVoltagePin);
-  float chargerBVoltage = measureVoltage(chargerBVoltagePin);
+  if (Serial.available() > 0) {
+    String receivedPacket = Serial.readStringUntil('\n');
+    receivedPacket.trim();
 
-  // JSON formátumú adat küldése egyetlen sorban a soros portra plusz új sor
-   jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +
-                     ", \"discharge_voltage\":" + String(dischargeVoltage, 2) + ", \"chargerA_voltage\":" + String(chargerAVoltage, 2) +
-                     ", \"chargerB_voltage\":" + String(chargerBVoltage, 2) + "}";
-  Serial.println(jsonData);
-  Serial.flush();
+    if (receivedPacket == "SEND_DATA") {
+      // Mérések elvégzése
+      float chargeCurrent = measureCurrent(chargePin, zeroCharge);
+      float dischargeCurrent = measureCurrent(dischargePin, zeroDischarge);
+      float dischargeVoltage = measureVoltage(dischargeVoltagePin);
+      float chargerAVoltage = measureVoltage(chargerAVoltagePin);
+      float chargerBVoltage = measureVoltage(chargerBVoltagePin);
 
-  delay(1000);
+      // JSON formátumú adat küldése egyetlen sorban a soros portra plusz új sor
+      jsonData = "{\"charge\":" + String(chargeCurrent, 2) + ", \"discharge\":" + String(dischargeCurrent, 2) +
+                      ", \"discharge_voltage\":" + String(dischargeVoltage, 2) + ", \"chargerA_voltage\":" + String(chargerAVoltage, 2) +
+                      ", \"chargerB_voltage\":" + String(chargerBVoltage, 2) + "}";
+      Serial.println(jsonData);
+      Serial.flush();
+
+      delay(1000);
+    }
+    
+  }
+  
 }
 
 // 🌟 Nullpont kalibráció (átlagolással)
